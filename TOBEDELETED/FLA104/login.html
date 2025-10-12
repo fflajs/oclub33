@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="w-full max-w-sm bg-white p-8 rounded-lg shadow-lg">
+        <h1 class="text-3xl font-bold mb-2 text-center">Cognitive Visualizer Login</h1>
+        <p class="text-gray-600 mb-6 text-center">Please enter your details.</p>
+        
+        <form id="login-form">
+            <div class="mb-4">
+                <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Name</label>
+                <input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+            </div>
+             <div class="mb-4">
+                <label for="org-unit" class="block text-gray-700 text-sm font-bold mb-2">Organizational Unit</label>
+                <select id="org-unit" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    <option value="">Loading units...</option>
+                </select>
+            </div>
+             <div class="mb-6">
+                <label for="role" class="block text-gray-700 text-sm font-bold mb-2">Role</label>
+                <select id="role" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    <option value="false">Coworker</option>
+                    <option value="true">Manager</option>
+                </select>
+            </div>
+            <div class="flex items-center justify-between">
+                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Login
+                </button>
+                <a href="/index.html" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
+                    Back to Main Menu
+                </a>
+            </div>
+        </form>
+        <p id="error-message" class="text-red-500 text-xs italic mt-4 text-center"></p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const orgUnitSelect = document.getElementById('org-unit');
+
+            // Fetch and populate the organization units
+            try {
+                const response = await fetch('/api/org-data');
+                const data = await response.json();
+                orgUnitSelect.innerHTML = '<option value="">Select a unit</option>';
+                data.units.forEach(unit => {
+                    const option = document.createElement('option');
+                    option.value = unit.id;
+                    option.textContent = unit.name;
+                    orgUnitSelect.appendChild(option);
+                });
+            } catch (error) {
+                orgUnitSelect.innerHTML = '<option value="">Could not load units</option>';
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('name').value.trim();
+            const orgUnitId = document.getElementById('org-unit').value;
+            const isManager = document.getElementById('role').value;
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = '';
+
+            if (!name || !orgUnitId || isManager === '') {
+                errorMessage.textContent = 'Please fill out all fields.';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, orgUnitId, isManager: isManager === 'true' })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Login failed.');
+                }
+
+                // If login is successful, construct the URL and redirect
+                const user = data;
+                const roleText = user.is_manager ? 'Manager' : 'Coworker';
+                
+                const url = new URL('/cognitive-tool.html', window.location.origin);
+                url.searchParams.set('personRoleId', user.personRoleId);
+                url.searchParams.set('userName', user.name);
+                url.searchParams.set('userRole', roleText);
+                url.searchParams.set('userUnit', user.orgUnitName);
+                url.searchParams.set('userUnitId', user.org_unit_id);
+
+                window.location.href = url.href;
+
+            } catch (error) {
+                errorMessage.textContent = error.message;
+            }
+        });
+    </script>
+</body>
+</html>
+
+

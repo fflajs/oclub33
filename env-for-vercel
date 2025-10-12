@@ -1,0 +1,7 @@
+DB_HOST=db.dtfecbqteajwtcmqudpd.supabase.co
+DB_PORT=5432
+DB_DATABASE=postgres
+DB_USER=postgres
+DB_PASSWORD=XXXX.XXXX
+GEMINI_API_KEY=qWeRtttzuuiopcAsssdds
+PORT=3002
