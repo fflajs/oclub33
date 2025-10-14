@@ -1,122 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text Analysis</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <title>Text Aggregation & Cognitive Analysis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-gray-100 p-8">
-    <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h1 class="text-3xl font-bold">Aggregated Text Analysis</h1>
-                <p id="iteration-display" class="text-blue-600 font-semibold mt-1">Loading active iteration...</p>
-            </div>
-            <a href="/portal.html" class="text-blue-500 hover:underline flex-shrink-0 ml-4">&larr; Back to Portal</a>
-        </div>
-        
-        <div class="space-y-6">
-            <div>
-                <label for="aggregated-text" class="block text-xl font-semibold text-gray-700 mb-2">Aggregated Target and Descriptions</label>
-                <textarea id="aggregated-text" rows="10" class="w-full p-3 border rounded-lg bg-gray-50 font-mono text-sm" readonly placeholder="Loading aggregated text..."></textarea>
-            </div>
-            
-            <div class="text-center">
-                 <button id="analyze-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 disabled:bg-gray-400">
-                    Generate Summary and Key Points
-                </button>
-            </div>
 
-            <div id="loading-spinner" class="text-center hidden">
-                <svg class="animate-spin h-8 w-8 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="mt-2 text-gray-600">Analyzing text... this may take a moment.</p>
-            </div>
-            
-            <div>
-                <label for="summary-text" class="block text-xl font-semibold text-gray-700 mb-2">Analysis Results</label>
-                <textarea id="summary-text" rows="10" class="w-full p-3 border rounded-lg bg-blue-50 font-mono text-sm" readonly placeholder="Analysis results will appear here..."></textarea>
-            </div>
-        </div>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="max-w-4xl w-full bg-white p-10 rounded-xl shadow-lg">
+    <h1 class="text-3xl font-bold text-center mb-4">Text Aggregation & Analysis</h1>
+    <p id="iteration-display" class="text-blue-600 text-center font-semibold mb-6">
+      Loading active iteration...
+    </p>
+
+    <div class="space-y-6">
+      <!-- Aggregated text area -->
+      <div>
+        <label for="aggregated-text" class="block text-gray-700 font-medium mb-2">
+          Aggregated Descriptions
+        </label>
+        <textarea
+          id="aggregated-text"
+          rows="10"
+          class="w-full p-3 border rounded-lg font-mono text-sm bg-gray-50 focus:ring focus:ring-blue-200"
+          placeholder="Click 'Aggregate Descriptions' to load text from the database..."
+        ></textarea>
+      </div>
+
+      <!-- Summary text area -->
+      <div>
+        <label for="summary-text" class="block text-gray-700 font-medium mb-2">
+          Cognitive Analysis (Gemini)
+        </label>
+        <textarea
+          id="summary-text"
+          rows="10"
+          readonly
+          class="w-full p-3 border rounded-lg font-mono text-sm bg-gray-50 focus:ring focus:ring-purple-200"
+          placeholder="Analysis result will appear here..."
+        ></textarea>
+      </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const aggregatedTextArea = document.getElementById('aggregated-text');
-            const summaryTextArea = document.getElementById('summary-text');
-            const analyzeButton = document.getElementById('analyze-button');
-            const loadingSpinner = document.getElementById('loading-spinner');
-            const iterationDisplay = document.getElementById('iteration-display');
-            const userName = sessionStorage.getItem('loggedInUser');
+    <div class="flex justify-between mt-6">
+      <button id="aggregate-btn" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+        Aggregate Descriptions
+      </button>
+      <button id="analyze-btn" class="bg-purple-500 text-white px-6 py-2 rounded hover:bg-purple-600">
+        Analyze Text
+      </button>
+      <button id="clear-btn" class="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500">
+        Clear
+      </button>
+    </div>
+  </div>
 
-            if (!userName) {
-                window.location.href = '/index.html';
-                return;
-            }
+  <script>
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // --- 1. Fetch and display iteration context ---
-            try {
-                const response = await fetch('/api/active-iteration');
-                if (!response.ok) throw new Error((await response.json()).message);
-                const activeIteration = await response.json();
-                iterationDisplay.textContent = `Analysis for Active Iteration: ${activeIteration.name} (ID: ${activeIteration.id})`;
-            } catch (error) {
-                iterationDisplay.textContent = `Error: ${error.message}`;
-                iterationDisplay.classList.remove('text-blue-600');
-                iterationDisplay.classList.add('text-red-600');
-            }
+    document.addEventListener("DOMContentLoaded", async () => {
+      console.log("🟢 analysis.html: init start");
 
-            // --- 2. Fetch and display the aggregated text ---
-            try {
-                const response = await fetch('/api/aggregate-texts');
-                if (!response.ok) throw new Error('Could not fetch texts.');
-                const data = await response.json();
-                aggregatedTextArea.value = data.aggregatedText;
-            } catch (error) {
-                aggregatedTextArea.value = `Error: ${error.message}`;
-                analyzeButton.disabled = true;
-            }
+      const iterationDisplay = document.getElementById("iteration-display");
+      const aggregateBtn = document.getElementById("aggregate-btn");
+      const analyzeBtn = document.getElementById("analyze-btn");
+      const clearBtn = document.getElementById("clear-btn");
+      const aggregatedText = document.getElementById("aggregated-text");
+      const summaryText = document.getElementById("summary-text");
 
-            // --- 3. Set up the Analyze button click event ---
-            analyzeButton.addEventListener('click', async () => {
-                const textToAnalyze = aggregatedTextArea.value;
-                if (!textToAnalyze.trim()) {
-                    summaryTextArea.value = "There is no text to analyze.";
-                    return;
-                }
+      // --- Load active iteration ---
+      try {
+        console.log("→ querying Supabase for active iteration...");
+        const { data, error } = await supabase
+          .from("iterations")
+          .select("*")
+          .is("end_date", null)
+          .single();
 
-                analyzeButton.disabled = true;
-                loadingSpinner.classList.remove('hidden');
-                summaryTextArea.value = '';
+        if (error || !data) throw error || new Error("No active iteration found");
+        iterationDisplay.textContent = `Active Iteration: ${data.name} (ID: ${data.id})`;
+        console.log("✅ Active iteration:", data);
+      } catch (err) {
+        console.error("❌ Failed to load iteration:", err.message);
+        iterationDisplay.textContent = "Error loading iteration.";
+        iterationDisplay.classList.replace("text-blue-600", "text-red-600");
+      }
 
-                try {
-                    const response = await fetch('/api/analyze-text', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: textToAnalyze })
-                    });
-                    
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Analysis failed on the server.');
-                    }
-                    
-                    const result = await response.json();
-                    summaryTextArea.value = result.analysis;
+      // --- Aggregate all role descriptions ---
+      aggregateBtn.addEventListener("click", async () => {
+        console.log("→ fetching all role descriptions from Supabase...");
+        aggregatedText.value = "Loading all descriptions...";
+        summaryText.value = "";
 
-                } catch (error) {
-                    summaryTextArea.value = `Error during analysis: ${error.message}`;
-                } finally {
-                    analyzeButton.disabled = false;
-                    loadingSpinner.classList.add('hidden');
-                }
-            });
-        });
-    </script>
+        try {
+          const { data: roles, error } = await supabase
+            .from("person_roles")
+            .select("description")
+            .not("description", "is", null);
+
+          if (error || !roles || roles.length === 0)
+            throw new Error("No descriptions found.");
+
+          const allText = roles.map((r) => r.description).join("\n\n");
+          aggregatedText.value = allText;
+          console.log(`✅ Loaded ${roles.length} descriptions.`);
+        } catch (err) {
+          console.error("❌ Aggregate error:", err.message);
+          aggregatedText.value = "Failed to load descriptions.";
+        }
+      });
+
+      // --- Analyze text using Gemini ---
+      analyzeBtn.addEventListener("click", async () => {
+        const text = aggregatedText.value.trim();
+        if (!text) {
+          alert("Please load or enter text before analyzing.");
+          return;
+        }
+
+        summaryText.value = "Analyzing with Gemini... please wait.";
+        try {
+          console.log("→ sending text to gemini-proxy.sh...");
+          const response = await fetch("/cgi-bin/gemini-proxy.sh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+
+          const result = await response.json();
+          console.log("✅ Gemini response:", result);
+
+          const aiText =
+            result?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            JSON.stringify(result, null, 2);
+
+          summaryText.value = aiText;
+        } catch (err) {
+          console.error("❌ Gemini error:", err);
+          summaryText.value = "Error analyzing text.";
+        }
+      });
+
+      // --- Clear both textareas ---
+      clearBtn.addEventListener("click", () => {
+        aggregatedText.value = "";
+        summaryText.value = "";
+      });
+    });
+  </script>
 </body>
 </html>
-
 

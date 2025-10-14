@@ -1,76 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Person Registration</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Cognitive Space Analyzer – Register</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="icon" href="favicon.ico"/>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="w-full max-w-sm bg-white p-8 rounded-lg shadow-lg">
-        <h1 class="text-3xl font-bold mb-2 text-center">Register New Person</h1>
-        <p class="text-gray-600 mb-6 text-center">Enter your full name to create an account.</p>
-        
-        <form id="register-form">
-            <div class="mb-4">
-                <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Full Name</label>
-                <input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-            </div>
-            <div class="flex items-center justify-between">
-                <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                    Register
-                </button>
-                <a href="/index.html" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-                    Back to Login
-                </a>
-            </div>
-        </form>
-        <p id="message" class="text-center text-sm italic mt-4"></p>
+
+<body class="bg-gray-100 text-gray-900 flex items-center justify-center min-h-screen">
+  <div class="bg-white shadow-xl rounded-2xl p-8 max-w-2xl w-full border border-gray-200">
+    <h1 class="text-3xl font-bold mb-4 text-blue-800 text-center">
+      Cognitive Space Analyzer
+    </h1>
+
+    <p class="text-gray-700 text-justify mb-8">
+      Use this form to register a new participant in the system. Each name must be unique and represent
+      a person who will later log in to answer cognitive surveys and visualize their cognitive landscape.
+    </p>
+
+    <div class="text-center mb-6">
+      <p class="text-gray-600">Enter your full name to register</p>
     </div>
 
-    <script>
-        document.getElementById('register-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const name = document.getElementById('name').value.trim();
-            const message = document.getElementById('message');
-            message.textContent = '';
-            message.className = 'text-center text-sm italic mt-4';
+    <div class="flex flex-col space-y-4 max-w-sm mx-auto">
+      <input
+        id="nameInput"
+        type="text"
+        placeholder="Your name"
+        class="w-full border border-gray-300 rounded-lg p-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-300"
+      />
 
-            if (!name) {
-                message.textContent = 'Please enter a name.';
-                message.classList.add('text-red-500');
-                return;
-            }
+      <button
+        id="registerBtn"
+        class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
+      >
+        Register
+      </button>
 
-            if (name.toLowerCase() === 'admin') {
-                message.textContent = 'This name is reserved and cannot be used.';
-                message.classList.add('text-red-500');
-                return;
-            }
+      <button
+        id="backBtn"
+        class="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition"
+      >
+        Back to Login
+      </button>
 
-            try {
-                const response = await fetch('/api/people', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
+      <p id="msg" class="text-sm text-center mt-2 text-red-500"></p>
+    </div>
 
-                const data = await response.json();
+    <footer class="text-gray-400 text-xs mt-8 text-center">
+      &copy; 2025 Club33 Cognitive System
+    </footer>
+  </div>
 
-                if (!response.ok) {
-                    throw new Error(data.message || 'Registration failed.');
-                }
-                
-                message.textContent = `User "${name}" successfully created! You can now log in.`;
-                message.classList.add('text-green-500');
-                document.getElementById('register-form').reset();
+  <script>
+    // --- Supabase connection ---
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            } catch (error) {
-                message.textContent = error.message;
-                message.classList.add('text-red-500');
-            }
-        });
-    </script>
+    const nameInput = document.getElementById("nameInput");
+    const registerBtn = document.getElementById("registerBtn");
+    const backBtn = document.getElementById("backBtn");
+    const msg = document.getElementById("msg");
+
+    // --- Registration logic ---
+    registerBtn.addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      msg.textContent = "";
+      msg.className = "text-sm text-center mt-2 text-red-500";
+
+      // 1. Empty name
+      if (!name) {
+        msg.textContent = "Please enter your name.";
+        return;
+      }
+
+      // 2. Reserved name check (case-insensitive)
+      if (name.toLowerCase() === "admin") {
+        msg.textContent = "This name is reserved and cannot be used.";
+        return;
+      }
+
+      try {
+        // 3. Check if user already exists
+        const { data: existing, error: checkError } = await sb
+          .from("people")
+          .select("id")
+          .eq("name", name)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error(checkError);
+          msg.textContent = "Database error. Please try again later.";
+          return;
+        }
+
+        if (existing) {
+          msg.textContent = "This name is already registered.";
+          return;
+        }
+
+        // 4. Insert new user
+        const { error } = await sb.from("people").insert([{ name }]);
+        if (error) {
+          console.error(error);
+          msg.textContent = "Could not register. Please try again.";
+          return;
+        }
+
+        // 5. Success message
+        msg.className = "text-sm text-center mt-2 text-green-600";
+        msg.textContent = `User "${name}" successfully created! You can now log in.`;
+        setTimeout(() => (window.location.href = "index.html"), 1500);
+      } catch (err) {
+        console.error(err);
+        msg.textContent = "Connection error.";
+      }
+    });
+
+    // --- Back to Login ---
+    backBtn.addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+  </script>
 </body>
 </html>
-
 

@@ -1,638 +1,648 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cognitive Space Visualization</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cognitive Space Visualization</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- UI/Libs -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #111827; }
-        .container { max-width: 1200px; margin: 2rem auto; padding: 2rem; background-color: #ffffff; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .slider-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-        .slider-item { display: flex; flex-direction: column; }
-        .chart-container { width: 100%; height: 300px; margin-bottom: 2rem; display: flex; justify-content: center; }
-        .voxel-container { width: 100%; height: 600px; border-radius: 1rem; overflow: hidden; background-color: #e5e7eb; display: flex; justify-content: center; align-items: center; }
-        .voxel-canvas { width: 100%; height: 100%; display: block; }
-        select:not([multiple]) { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
-        .grid-container { max-height: 400px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
-        .results-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-        .results-table th, .results-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        .results-table th { background-color: #f9fafb; font-weight: 600; position: sticky; top: 0; z-index: 10; }
-        .results-table td:first-child, .results-table th:first-child { position: sticky; left: 0; background-color: #f9fafb; }
-        .results-table tr:first-child td { font-weight: bold; color: #1d4ed8; }
-        .stats-table td { padding: 0.5rem 1rem; }
-    </style>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #111827; }
+    .container { max-width: 1200px; margin: 2rem auto; padding: 2rem; background-color: #ffffff; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
+    .slider-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+    .slider-item { display: flex; flex-direction: column; }
+    .chart-container { width: 100%; height: 300px; margin-bottom: 2rem; display: flex; justify-content: center; }
+    .voxel-container { width: 100%; height: 600px; border-radius: 1rem; overflow: hidden; background-color: #e5e7eb; display: flex; justify-content: center; align-items: center; }
+    .voxel-canvas { width: 100%; height: 100%; display: block; }
+    .grid-container { max-height: 400px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
+    .results-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    .results-table th, .results-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    .results-table th { background-color: #f9fafb; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+    .results-table td:first-child, .results-table th:first-child { position: sticky; left: 0; background-color: #f9fafb; }
+    .results-table tr:first-child td { font-weight: bold; color: #1d4ed8; }
+    .stats-table td { padding: 0.5rem 1rem; }
+    .muted { color:#6b7280 }
+    .btn { transition: all .15s ease; }
+    .btn:disabled { opacity: .6; cursor:not-allowed }
+    #debug-log { background:#eef6ff; border:1px solid #bfdbfe; color:#1d4ed8; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; padding:8px 10px; border-radius:8px; max-height:160px; overflow:auto; }
+  </style>
 </head>
 <body>
-
 <div class="container">
-    <div class="text-center mb-4">
-        <h1 class="text-3xl font-bold">Cognition Space Visualizer</h1>
-        <p id="iteration-display" class="text-blue-600 font-semibold mt-1">Loading active iteration...</p>
-        <p class="text-md text-gray-500 mt-2">Proof of Concept September 2025</p>
-    </div>
-    <div id="user-context-display" class="text-center mb-6 p-3 bg-gray-100 rounded-lg border text-sm"></div>
+  <div class="text-center mb-4">
+    <h1 class="text-3xl font-bold">Cognition Space Visualizer</h1>
+    <p id="iteration-display" class="text-blue-600 font-semibold mt-1">Loading active iteration...</p>
+    <p class="text-xs muted">Client-only v2 (Supabase + /data + CGI) • Debug on</p>
+  </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <label for="target-textarea" class="text-lg font-semibold text-gray-800">Target</label>
-            <textarea id="target-textarea" rows="4" class="w-full mt-2 p-2 border rounded-lg resize-y font-mono text-sm bg-white" placeholder="Overall target set by root manager..."></textarea>
-            <button id="save-target-button" class="mt-2 w-full p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400">Save Target</button>
-        </div>
-        <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <label for="description-textarea" class="text-lg font-semibold text-gray-800">Description</label>
-            <textarea id="description-textarea" rows="4" class="w-full mt-2 p-2 border rounded-lg resize-y font-mono text-sm bg-white" placeholder="Your personal description for this role..."></textarea>
-            <button id="save-description-button" class="mt-2 w-full p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Save Description</button>
-        </div>
-    </div>
+  <pre id="debug-log"></pre>
 
-    <div id="stats-section" class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-8 hidden">
-        <h2 class="text-xl font-semibold text-center text-gray-800 mb-4">Organization Statistics (Active Iteration)</h2>
-        <table class="w-full text-sm text-left text-gray-600 stats-table">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                <tr>
-                    <th scope="col" class="px-6 py-3">Metric</th>
-                    <th scope="col" class="px-6 py-3 text-center">Count</th>
-                    <th scope="col" class="px-6 py-3 text-center">Percentage</th>
-                </tr>
-            </thead>
-            <tbody id="stats-table-body">
-            </tbody>
-        </table>
-    </div>
+  <div id="user-context-display" class="text-center mb-6 p-3 bg-gray-100 rounded-lg border text-sm"></div>
 
-    <p id="survey-intro-text" class="text-gray-600 text-center mb-8">Enter values to compute the mean, mode, and visualize the data in 3D and 2D.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <label for="target-textarea" class="text-lg font-semibold text-gray-800">Target</label>
+      <textarea id="target-textarea" rows="4" class="w-full mt-2 p-2 border rounded-lg resize-y font-mono text-sm bg-white" placeholder="Overall target set by root manager..."></textarea>
+      <button id="save-target-button" class="btn mt-2 w-full p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400">Save Target</button>
+    </div>
+    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+      <label for="description-textarea" class="text-lg font-semibold text-gray-800">Description</label>
+      <textarea id="description-textarea" rows="4" class="w-full mt-2 p-2 border rounded-lg resize-y font-mono text-sm bg-white" placeholder="Your personal description for this role..."></textarea>
+      <button id="save-description-button" class="btn mt-2 w-full p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Save Description</button>
+    </div>
+  </div>
 
-    <div class="p-6 mb-8 bg-gray-50 rounded-lg border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4 text-center">Survey Questions</h2>
-        <div id="survey-questions" class="slider-container"></div>
+  <div id="stats-section" class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-8 hidden">
+    <h2 class="text-xl font-semibold text-center text-gray-800 mb-4">Organization Statistics (Active Iteration)</h2>
+    <table class="w-full text-sm text-left text-gray-600 stats-table">
+      <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+      <tr>
+        <th scope="col" class="px-6 py-3">Metric</th>
+        <th scope="col" class="px-6 py-3 text-center">Count</th>
+        <th scope="col" class="px-6 py-3 text-center">Percentage</th>
+      </tr>
+      </thead>
+      <tbody id="stats-table-body"></tbody>
+    </table>
+  </div>
+
+  <p id="survey-intro-text" class="text-gray-600 text-center mb-8">Enter values to compute the mean, mode, and visualize the data in 3D and 2D.</p>
+
+  <div class="p-6 mb-8 bg-gray-50 rounded-lg border border-gray-200">
+    <h2 class="text-2xl font-semibold mb-4 text-center">Survey Questions</h2>
+    <div id="survey-questions" class="slider-container"></div>
+  </div>
+
+  <div class="p-6 bg-gray-50 rounded-lg border border-gray-200">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-semibold">Computed JSON Data</h2>
     </div>
-    <div class="p-6 bg-gray-50 rounded-lg border border-gray-200">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-semibold">Computed JSON Data</h2>
-        </div>
-        <textarea id="json-output" class="w-full h-48 p-4 border rounded-lg resize-none font-mono text-sm bg-gray-100" readonly></textarea>
-        <div class="flex justify-between mt-4 space-x-4">
-            <button id="reset-button" class="flex-1 p-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500">Reset</button>
-            <button id="save-button" class="flex-1 p-3 bg-green-500 text-white rounded-lg hover:bg-green-600">Save to Server</button>
-        </div>
-        <span id="message-area" class="text-xs text-green-600 mt-2 block text-center"></span>
+    <textarea id="json-output" class="w-full h-48 p-4 border rounded-lg resize-none font-mono text-sm bg-gray-100" readonly></textarea>
+    <div class="flex justify-between mt-4 space-x-4">
+      <button id="reset-button" class="btn flex-1 p-3 bg-gray-400 text-white rounded-lg hover:bg-gray-500">Reset</button>
+      <button id="save-button" class="btn flex-1 p-3 bg-green-500 text-white rounded-lg hover:bg-green-600">Save to Server</button>
     </div>
-    <div class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4 text-center">Gaussian Distributions</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="chart-container"><canvas id="knowledge-density-chart"></canvas></div>
-            <div class="chart-container"><canvas id="familiarity-chart"></canvas></div>
-            <div class="chart-container"><canvas id="cognitive-load-chart"></canvas></div>
-        </div>
+    <span id="message-area" class="text-xs text-green-600 mt-2 block text-center"></span>
+  </div>
+
+  <div class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
+    <h2 class="text-2xl font-semibold mb-4 text-center">Gaussian Distributions</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="chart-container"><canvas id="knowledge-density-chart"></canvas></div>
+      <div class="chart-container"><canvas id="familiarity-chart"></canvas></div>
+      <div class="chart-container"><canvas id="cognitive-load-chart"></canvas></div>
     </div>
-    <div class="p-6 mb-8 bg-gray-50 rounded-lg border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4 text-center">3D Voxel Scene</h2>
-        <div class="voxel-container"><canvas id="voxel-canvas" class="voxel-canvas"></canvas></div>
+  </div>
+
+  <div class="p-6 mb-8 bg-gray-50 rounded-lg border border-gray-200">
+    <h2 class="text-2xl font-semibold mb-4 text-center">3D Voxel Scene</h2>
+    <div class="voxel-container"><canvas id="voxel-canvas" class="voxel-canvas"></canvas></div>
+  </div>
+
+  <div class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
+    <h2 class="text-2xl font-semibold mb-4 text-center">Analysis & Coaching</h2>
+    <div class="text-center">
+      <p class="text-lg font-medium text-gray-800" id="analysis-desc">Adjust sliders to see analysis.</p>
+      <p class="mt-2 text-md text-gray-600" id="analysis-tip"></p>
     </div>
-    <div class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4 text-center">Analysis & Coaching</h2>
-        <div id="analysis-content" class="text-center">
-            <p class="text-lg font-medium text-gray-800" id="analysis-desc">Adjust sliders to see analysis.</p>
-            <p class="mt-2 text-md text-gray-600" id="analysis-tip"></p>
-        </div>
+  </div>
+
+  <div id="calculation-section" class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
+    <h2 class="text-2xl font-semibold mb-4 text-center">Calculation</h2>
+    <div class="flex flex-col items-center">
+      <div class="flex space-x-4">
+        <button id="calculate-selected-button" class="btn p-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600">Calculate Unit Average</button>
+      </div>
     </div>
-    <div id="calculation-section" class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
-        <h2 class="text-2xl font-semibold mb-4 text-center">Calculation</h2>
-        <div class="flex flex-col items-center">
-            <div class="flex space-x-4">
-                <button id="calculate-selected-button" class="p-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600">Calculate Unit Average</button>
-            </div>
-        </div>
-        <div id="average-charts-container" class="mt-8 hidden"><h2 class="text-2xl font-semibold mb-4 text-center">Average Gaussian Distributions</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-8"><div class="chart-container"><canvas id="avg-knowledge-density-chart"></canvas></div><div class="chart-container"><canvas id="avg-familiarity-chart"></canvas></div><div class="chart-container"><canvas id="avg-cognitive-load-chart"></canvas></div></div></div>
-        <div id="average-voxel-container" class="mt-8 hidden"><h2 class="text-2xl font-semibold mb-4 text-center">Average 3D Voxel Scene</h2><div class="voxel-container"><canvas id="avg-voxel-canvas" class="voxel-canvas"></canvas></div></div>
-        <div id="average-analysis-container" class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200 hidden"><h2 class="text-2xl font-semibold mb-4 text-center">Analysis & Coaching for Average Data</h2><div id="average-analysis-content" class="text-center"><p class="text-lg font-medium text-gray-800" id="avg-analysis-desc"></p><p class="mt-2 text-md text-gray-600" id="avg-analysis-tip"></p></div></div>
+    <div id="average-charts-container" class="mt-8 hidden">
+      <h2 class="text-2xl font-semibold mb-4 text-center">Average Gaussian Distributions</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="chart-container"><canvas id="avg-knowledge-density-chart"></canvas></div>
+        <div class="chart-container"><canvas id="avg-familiarity-chart"></canvas></div>
+        <div class="chart-container"><canvas id="avg-cognitive-load-chart"></canvas></div>
+      </div>
     </div>
+    <div id="average-voxel-container" class="mt-8 hidden">
+      <h2 class="text-2xl font-semibold mb-4 text-center">Average 3D Voxel Scene</h2>
+      <div class="voxel-container"><canvas id="avg-voxel-canvas" class="voxel-canvas"></canvas></div>
+    </div>
+    <div id="average-analysis-container" class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200 hidden">
+      <h2 class="text-2xl font-semibold mb-4 text-center">Analysis & Coaching for Average Data</h2>
+      <div class="text-center">
+        <p class="text-lg font-medium text-gray-800" id="avg-analysis-desc"></p>
+        <p class="mt-2 text-md text-gray-600" id="avg-analysis-tip"></p>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-    window.onload = async function() {
-        document.title = `Cognitive Space Visualization`;
+(function(){
+  // ---------- Debug helper ----------
+  const dbgEl = document.getElementById('debug-log');
+  const dbg = (...a)=>{ try{ console.log(...a); dbgEl.textContent += a.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' ')+'\\n'; dbgEl.scrollTop=dbgEl.scrollHeight; }catch(e){} };
 
-        const baseUrl = window.location.origin;
-        const urlParams = new URLSearchParams(window.location.search);
-        const personRoleId = urlParams.get('personRoleId');
-        const iterationId = urlParams.get('iterationId'); 
-        let personId; 
-        let currentUserIsManager = false;
+  // ---------- Supabase client ----------
+  const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // --- DOM Element References ---
-        const userContextDisplay = document.getElementById('user-context-display');
-        const calculationSection = document.getElementById('calculation-section');
-        const saveButton = document.getElementById('save-button');
-        const calculateSelectedButton = document.getElementById('calculate-selected-button');
-        const surveyQuestionsDiv = document.getElementById('survey-questions');
-        const jsonOutput = document.getElementById('json-output');
-        const resetButton = document.getElementById('reset-button');
-        const messageArea = document.getElementById('message-area');
-        const analysisDesc = document.getElementById('analysis-desc');
-        const analysisTip = document.getElementById('analysis-tip');
-        const averageChartsContainer = document.getElementById('average-charts-container');
-        const averageVoxelContainer = document.getElementById('average-voxel-container');
-        const averageAnalysisContainer = document.getElementById('average-analysis-container');
-        const avgAnalysisDesc = document.getElementById('avg-analysis-desc');
-        const avgAnalysisTip = document.getElementById('avg-analysis-tip');
-        const targetTextarea = document.getElementById('target-textarea');
-        const saveTargetButton = document.getElementById('save-target-button');
-        const descriptionTextarea = document.getElementById('description-textarea');
-        const saveDescriptionButton = document.getElementById('save-description-button');
-        const statsSection = document.getElementById('stats-section');
-        const statsTableBody = document.getElementById('stats-table-body');
-        const iterationDisplay = document.getElementById('iteration-display');
-        const surveyIntroText = document.getElementById('survey-intro-text');
+  // ---------- DOM ----------
+  const iterationDisplay = document.getElementById('iteration-display');
+  const userContextDisplay = document.getElementById('user-context-display');
+  const targetTextarea = document.getElementById('target-textarea');
+  const saveTargetButton = document.getElementById('save-target-button');
+  const descriptionTextarea = document.getElementById('description-textarea');
+  const saveDescriptionButton = document.getElementById('save-description-button');
+  const statsSection = document.getElementById('stats-section');
+  const statsTableBody = document.getElementById('stats-table-body');
+  const surveyIntroText = document.getElementById('survey-intro-text');
+  const surveyQuestionsDiv = document.getElementById('survey-questions');
+  const jsonOutput = document.getElementById('json-output');
+  const resetButton = document.getElementById('reset-button');
+  const saveButton = document.getElementById('save-button');
+  const messageArea = document.getElementById('message-area');
+  const analysisDesc = document.getElementById('analysis-desc');
+  const analysisTip = document.getElementById('analysis-tip');
+  const calculateSelectedButton = document.getElementById('calculate-selected-button');
+  const averageChartsContainer = document.getElementById('average-charts-container');
+  const averageVoxelContainer = document.getElementById('average-voxel-container');
+  const averageAnalysisContainer = document.getElementById('average-analysis-container');
+  const avgAnalysisDesc = document.getElementById('avg-analysis-desc');
+  const avgAnalysisTip = document.getElementById('avg-analysis-tip');
 
-        // --- State Variables ---
-        let surveyValues = []; 
-        let questionStrings = []; 
-        const voxelMap = new Map();
-        let chartInstances = { knowledge: null, familiarity: null, cognitive: null };
-        let avgChartInstances = { knowledge: null, familiarity: null, cognitive: null };
-        const mainSceneState = { grid: [], scene: null, camera: null, renderer: null, controls: null, outline: null, lastHighlighted: null };
-        const avgSceneState = { grid: [], scene: null, camera: null, renderer: null, controls: null, outline: null, lastHighlighted: null };
-        const redMaterial = new THREE.MeshBasicMaterial({ color: 0xef4444, opacity: 0.7, transparent: true });
-        const yellowMaterial = new THREE.MeshBasicMaterial({ color: 0xfacc15, opacity: 0.6, transparent: true });
-        const grayMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true, opacity: 0.2, transparent: true });
+  // ---------- URL params ----------
+  const params = new URLSearchParams(window.location.search);
+  const personRoleId = parseInt(params.get('personRoleId'), 10);
+  const iterationIdParam = params.get('iterationId');
+  const userUnitIdParam = params.get('userUnitId');
 
-        async function loadIterationContext() {
-            try {
-                const response = await fetch('/api/active-iteration');
-                if (!response.ok) throw new Error((await response.json()).message);
-                const activeIteration = await response.json();
-                const questionSetName = activeIteration.question_set.replace('.json', '').replace(/_/g, ' ');
-                iterationDisplay.innerHTML = `Active Iteration: <span class="font-bold">${activeIteration.name} (ID: ${activeIteration.id})</span> | Question Set: <span class="font-bold">${questionSetName}</span>`;
-            } catch (error) {
-                iterationDisplay.textContent = `Error: ${error.message}`;
-                iterationDisplay.classList.remove('text-blue-600');
-                iterationDisplay.classList.add('text-red-600');
-            }
+  // ---------- State ----------
+  let activeIteration = null;
+  let personContext = null;
+  let surveyValues = [];
+  let questionStrings = [];
+  const voxelMap = new Map();
+  let chartInstances = { knowledge:null, familiarity:null, cognitive:null };
+  let avgChartInstances = { knowledge:null, familiarity:null, cognitive:null };
+  const mainSceneState = { grid:[], scene:null, camera:null, renderer:null, controls:null, outline:null, lastHighlighted:null };
+  const avgSceneState  = { grid:[], scene:null, camera:null, renderer:null, controls:null, outline:null, lastHighlighted:null };
+  const redMaterial    = new THREE.MeshBasicMaterial({ color: 0xef4444, opacity: 0.7, transparent: true });
+  const yellowMaterial = new THREE.MeshBasicMaterial({ color: 0xfacc15, opacity: 0.6, transparent: true });
+  const grayMaterial   = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, wireframe: true, opacity: 0.2, transparent: true });
+
+  function showMessage(msg, color='green'){ messageArea.textContent = msg; messageArea.className = `text-xs text-${color}-600 mt-2 block text-center`; setTimeout(()=>messageArea.textContent='', 4000); }
+
+  // ---------- Helpers (stats & math) ----------
+  const getMode = (arr)=>{ if(!arr||!arr.length) return null; const counts={}; let max=0,mode=null; arr.forEach(v=>{counts[v]=(counts[v]||0)+1; if(counts[v]>max){max=counts[v]; mode=v;}}); return mode; };
+  const getGaussianData = (mean, stdDev=1)=>{ const g=(x,m,s)=>Math.exp(-0.5*Math.pow((x-m)/s,2))/(s*Math.sqrt(2*Math.PI)); return Array.from({length:71},(_,i)=>parseFloat(g(1+i*0.1, mean, stdDev).toFixed(4))); };
+  const chartLabels = Array.from({length:71},(_,i)=>(1+i*0.1).toFixed(1));
+  const chartOptions = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, title:{display:true,text:''}}, scales:{ x:{ grid:{display:false}, title:{display:true, text:'Value'}}, y:{ grid:{display:false}, title:{display:true, text:'Probability Density'}}}};
+  const createChartData = (label, data, color)=>({ labels: chartLabels, datasets:[{ label, data, borderColor:`rgb(${color})`, backgroundColor:`rgba(${color},0.2)`, borderWidth:2, fill:true, tension:0.4 }]});
+
+  function renderMainCharts(graphs){
+    if(chartInstances.knowledge) chartInstances.knowledge.destroy();
+    chartInstances.knowledge = new Chart(document.getElementById('knowledge-density-chart'), { type:'line', data:createChartData('Knowledge Density', graphs.knowledge_density.distribution_data, '75, 192, 192'), options:{...chartOptions, plugins:{...chartOptions.plugins, title:{...chartOptions.plugins.title, text:'Knowledge Density'}}}});
+    if(chartInstances.familiarity) chartInstances.familiarity.destroy();
+    chartInstances.familiarity = new Chart(document.getElementById('familiarity-chart'), { type:'line', data:createChartData('Familiarity', graphs.familiarity.distribution_data, '54, 162, 235'), options:{...chartOptions, plugins:{...chartOptions.plugins, title:{...chartOptions.plugins.title, text:'Familiarity'}}}});
+    if(chartInstances.cognitive) chartInstances.cognitive.destroy();
+    chartInstances.cognitive = new Chart(document.getElementById('cognitive-load-chart'), { type:'line', data:createChartData('Cognitive Load', graphs.cognitive_load.distribution_data, '255, 159, 64'), options:{...chartOptions, plugins:{...chartOptions.plugins, title:{...chartOptions.plugins.title, text:'Cognitive Load'}}}});
+  }
+
+  function renderAverageCharts(graphs){
+    if(!graphs) return;
+    if(avgChartInstances.knowledge) avgChartInstances.knowledge.destroy();
+    avgChartInstances.knowledge = new Chart(document.getElementById('avg-knowledge-density-chart'), { type:'line', data:createChartData('Knowledge Density', graphs.knowledge_density.distribution_data, '75, 192, 192'), options:{...chartOptions, plugins:{...chartOptions.plugins, title:{...chartOptions.plugins.title, text:'Avg. Knowledge Density'}}}});
+    if(avgChartInstances.familiarity) avgChartInstances.familiarity.destroy();
+    avgChartInstances.familiarity = new Chart(document.getElementById('avg-familiarity-chart'), { type:'line', data:createChartData('Familiarity', graphs.familiarity.distribution_data, '54, 162, 235'), options:{...chartOptions, plugins:{...chartOptions.plugins, title:{...chartOptions.plugins.title, text:'Avg. Familiarity'}}}});
+    if(avgChartInstances.cognitive) avgChartInstances.cognitive.destroy();
+    avgChartInstances.cognitive = new Chart(document.getElementById('avg-cognitive-load-chart'), { type:'line', data:createChartData('Cognitive Load', graphs.cognitive_load.distribution_data, '255, 159, 64'), options:{...chartOptions, plugins:{...chartOptions.plugins, title:{...chartOptions.plugins.title, text:'Avg. Cognitive Load'}}}});
+  }
+
+  function initVoxelScene(canvasId, sceneState){
+    const voxelCanvas = document.getElementById(canvasId);
+    sceneState.scene = new THREE.Scene(); sceneState.scene.background = new THREE.Color(0xf3f4f6);
+    sceneState.camera = new THREE.PerspectiveCamera(50, voxelCanvas.clientWidth/voxelCanvas.clientHeight, 0.1, 1000); sceneState.camera.position.set(1.2,1.2,1.2);
+    sceneState.renderer = new THREE.WebGLRenderer({ antialias:true, canvas:voxelCanvas }); sceneState.renderer.setSize(voxelCanvas.clientWidth, voxelCanvas.clientHeight);
+    sceneState.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(5,10,7.5); sceneState.scene.add(dirLight);
+
+    const voxelSize = 1/8; const voxelGeom = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+    for(let z=1; z<=8; z++) for(let y=1; y<=8; y++) for(let x=1; x<=8; x++){
+      const voxel = new THREE.Mesh(voxelGeom, grayMaterial);
+      voxel.position.set((x-0.5)/8-0.5, (y-0.5)/8-0.5, (z-0.5)/8-0.5);
+      sceneState.scene.add(voxel); sceneState.grid.push(voxel);
+    }
+    sceneState.outline = new THREE.LineSegments(new THREE.EdgesGeometry(voxelGeom), new THREE.LineBasicMaterial({ color:0x992222 })); sceneState.scene.add(sceneState.outline);
+    sceneState.controls = new THREE.OrbitControls(sceneState.camera, sceneState.renderer.domElement); sceneState.controls.enableDamping = true; sceneState.controls.dampingFactor = 0.05;
+    (function anim(){ requestAnimationFrame(anim); sceneState.controls.update(); sceneState.renderer.render(sceneState.scene, sceneState.camera); })();
+  }
+
+  function updateVoxelScene(voxelData, sceneState){
+    if(sceneState.lastHighlighted) sceneState.lastHighlighted.material = grayMaterial;
+    if(sceneState.outline) sceneState.outline.visible = false;
+    if(!voxelData || !voxelData.roundedMean) return;
+    const {x,y,z} = voxelData.roundedMean;
+    const idx = (x-1) + (y-1)*8 + (z-1)*64;
+    if(sceneState.grid[idx]){
+      const newVoxel = sceneState.grid[idx]; newVoxel.material = redMaterial;
+      sceneState.outline.position.copy(newVoxel.position);
+      sceneState.outline.visible = true; sceneState.lastHighlighted = newVoxel;
+    }
+  }
+
+  function updateAverageVoxelScene(calculationResult, sourceFiles){
+    const sceneState = avgSceneState;
+    sceneState.grid.forEach(v=>v.material = grayMaterial);
+    if(sceneState.outline) sceneState.outline.visible = false;
+    if(Array.isArray(sourceFiles)){
+      sourceFiles.forEach(file=>{
+        const v = file?.data?.analysis?.voxel;
+        if(v && v.roundedMean){
+          const {x,y,z} = v.roundedMean; const idx = (x-1)+(y-1)*8+(z-1)*64;
+          if(sceneState.grid[idx]) sceneState.grid[idx].material = yellowMaterial;
         }
+      });
+    }
+    const avgV = calculationResult?.data?.analysis?.voxel;
+    if(avgV && avgV.roundedMean){
+      const {x,y,z} = avgV.roundedMean; const idx = (x-1)+(y-1)*8+(z-1)*64;
+      if(sceneState.grid[idx]){
+        const nv = sceneState.grid[idx]; nv.material = redMaterial;
+        sceneState.outline.position.copy(nv.position); sceneState.outline.visible = true;
+      }
+    }
+  }
 
-        async function handleUserContext() {
-            if (personRoleId && iterationId) {
-                try {
-                    const response = await fetch(`${baseUrl}/api/person-context/${personRoleId}`);
-                    if (!response.ok) throw new Error('Could not fetch user context.');
-                    const user = await response.json();
-                    
-                    personId = user.personId;
-                    currentUserIsManager = user.is_manager;
+  function parseVoxelData(csvString){
+    const lines = csvString.trim().split('\\n').slice(1);
+    for(const line of lines){
+      if(line.trim()==='') continue;
+      const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      if(parts.length > 12){
+        const key = parts[0].replace(/"/g,'').replace(/\\\\/g,'');
+        const short_desc = parts[11].replace(/"/g,'');
+        const coach_tip = parts[12].replace(/"/g,'').replace(/;/g, ', ');
+        voxelMap.set(key, { short_desc, coach_tip });
+      }
+    }
+  }
+  function updateAnalysis(rx, ry, rz){
+    const k = `[${rx},${ry},${rz}]`; const a = voxelMap.get(k);
+    analysisDesc.textContent = a ? a.short_desc : 'No specific analysis for this combination.';
+    analysisTip.textContent  = a ? `Coaching Tip: ${a.coach_tip}` : '';
+  }
+  function updateAverageAnalysis(rx, ry, rz){
+    const k = `[${rx},${ry},${rz}]`; const a = voxelMap.get(k);
+    avgAnalysisDesc.textContent = a ? a.short_desc : 'No specific analysis for this combination.';
+    avgAnalysisTip.textContent  = a ? `Coaching Tip: ${a.coach_tip}` : '';
+  }
 
-                    userContextDisplay.innerHTML = `<span class="font-semibold">User:</span> <span class="text-blue-600">${user.name}</span> | <span class="font-semibold">Role:</span> <span class="text-blue-600">${user.is_manager ? 'Manager' : 'Coworker'}</span> | <span class="font-semibold">Unit:</span> <span class="text-blue-600">${user.orgUnitName}</span>`;
-                    
-                    if (!currentUserIsManager) {
-                        calculationSection.classList.add('hidden');
-                    } else {
-                        loadAndDisplayStats();
-                    }
-                    descriptionTextarea.value = user.description || '';
-
-                    // New logic for enabling/disabling the Target textarea
-                    const isFirstIteration = (parseInt(iterationId, 10) === user.firstIterationId);
-                    const canEditTarget = user.isRootManager && isFirstIteration;
-
-                    targetTextarea.readOnly = !canEditTarget;
-                    saveTargetButton.disabled = !canEditTarget;
-                    if (!canEditTarget && isFirstIteration === false) {
-                        targetTextarea.placeholder = "The Target is locked after the first iteration.";
-                    }
-
-                } catch(error) {
-                     userContextDisplay.innerHTML = `<span class="text-red-500">Could not load user context. App functions disabled.</span>`;
-                     [saveButton, calculateSelectedButton, saveTargetButton, saveDescriptionButton, resetButton].forEach(btn => btn.disabled = true);
-                     [targetTextarea, descriptionTextarea].forEach(ta => ta.readOnly = true);
-                }
-            } else {
-                userContextDisplay.innerHTML = `<span class="font-semibold">Mode:</span> <span class="text-red-600">Invalid Access. Please login.</span>`;
-                showMessage('Missing user or iteration context. Please login again.', 'red');
-                [saveButton, calculateSelectedButton, saveTargetButton, saveDescriptionButton].forEach(btn => btn.disabled = true);
-                [targetTextarea, descriptionTextarea].forEach(ta => ta.readOnly = true);
-            }
-        }
-        
-        async function loadAppData() {
-            try {
-                const targetResponse = await fetch(`${baseUrl}/api/app-data/target`);
-                if (!targetResponse.ok) throw new Error('Could not fetch target data.');
-                const targetData = await targetResponse.json();
-                targetTextarea.value = targetData.value || '';
-            } catch(error) {
-                showMessage('Could not load Target data.', 'red');
-            }
-        }
-
-        async function loadAndDisplayStats() {
-            try {
-                const response = await fetch(`${baseUrl}/api/organization-stats/${personRoleId}`);
-                if (!response.ok) return;
-                const stats = await response.json();
-                
-                statsTableBody.innerHTML = '';
-                const formatPercent = (numerator, denominator) => denominator === 0 ? 'N/A' : `${((numerator / denominator) * 100).toFixed(1)}%`;
-
-                const rows = [
-                    { label: 'Is the Objective of the organization entered?', value: stats.targetEntered > 0 ? 'Yes' : 'No', percent: stats.targetEntered > 0 ? '100%' : '0%' },
-                    { label: 'Total number of assigned roles:', value: stats.totalRoles, percent: '100%' },
-                    { label: 'Total number of roles with a "Description":', value: stats.descriptionsEntered, percent: formatPercent(stats.descriptionsEntered, stats.totalRoles) },
-                    { label: 'Total number of roles with "cognitive_data":', value: stats.cognitiveDataEntered, percent: formatPercent(stats.cognitiveDataEntered, stats.totalRoles) },
-                    { label: 'Total number of organizational units:', value: stats.totalUnits, percent: '100%' },
-                    { label: 'Total number of units with a calculated average:', value: stats.calculatedUnits, percent: formatPercent(stats.calculatedUnits, stats.totalUnits) }
-                ];
-
-                rows.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.className = 'bg-white border-b';
-                    tr.innerHTML = `<td class="px-6 py-2 font-medium text-gray-900 whitespace-nowrap">${row.label}</td><td class="px-6 py-2 text-center">${row.value}</td><td class="px-6 py-2 text-center">${row.percent}</td>`;
-                    statsTableBody.appendChild(tr);
-                });
-
-                statsSection.classList.remove('hidden');
-
-            } catch (error) {
-                console.error("Could not load organization stats:", error);
-            }
-        }
-
-        async function loadInitialSurveys() {
-            if (!personRoleId) return;
-            try {
-                const response = await fetch(`${baseUrl}/api/initial-load/${personRoleId}`);
-                if (!response.ok) {
-                    console.log('No initial survey data found for user, using defaults.');
-                    return;
-                }
-                const data = await response.json();
-
-                if (data.individualData) {
-                    updateUIWithLoadedData(data.individualData);
-                }
-
-                if (data.calculatedData) {
-                    renderAverageCharts(data.calculatedData.analysis.graphs);
-                    averageChartsContainer.classList.remove('hidden');
-                    averageVoxelContainer.classList.remove('hidden');
-                    setTimeout(() => {
-                        updateAverageVoxelScene({ data: data.calculatedData }, []);
-                        const avgVoxelCanvas = document.getElementById('avg-voxel-canvas');
-                        const container = avgVoxelCanvas.parentElement;
-                        if (avgSceneState.renderer && avgSceneState.camera && container) {
-                            avgSceneState.renderer.setSize(container.clientWidth, container.clientHeight);
-                            avgSceneState.camera.aspect = container.clientWidth / container.clientHeight;
-                            avgSceneState.camera.updateProjectionMatrix();
-                        }
-                    }, 100);
-                    const { x, y, z } = data.calculatedData.analysis.voxel.roundedMean;
-                    updateAverageAnalysis(x, y, z);
-                    averageAnalysisContainer.classList.remove('hidden');
-                }
-            } catch (error) {
-                showMessage('Could not auto-load survey data.', 'red');
-                console.error('Error loading initial survey data:', error);
-            }
-        }
-
-        async function loadInitialCoreData() {
-            try {
-                if (!iterationId) throw new Error("Iteration ID is missing from URL.");
-                const [voxelResponse, questionsResponse] = await Promise.all([
-                    fetch(`${baseUrl}/api/voxel-data`),
-                    fetch(`${baseUrl}/api/questions/${iterationId}`)
-                ]);
-                if (!voxelResponse.ok || !questionsResponse.ok) throw new Error('Failed to fetch initial data.');
-                const loadedQuestionStrings = await questionsResponse.json();
-                return { voxelCsvData: await voxelResponse.text(), questionStrings: loadedQuestionStrings };
-            } catch (error) {
-                console.error("Failed to load initial data:", error);
-                document.body.innerHTML = `<div class="text-red-500 text-center p-8">Error: Could not load application data. ${error.message}</div>`;
-                return null;
-            }
-        }
-        
-        function parseVoxelData(csvString) {
-            const lines = csvString.trim().split('\n').slice(1);
-            for (const line of lines) {
-                if (line.trim() === '') continue;
-                const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if (parts.length > 12) {
-                    const key = parts[0].replace(/"/g, '').replace(/\\/g, '');
-                    const short_desc = parts[11].replace(/"/g, '');
-                    const coach_tip = parts[12].replace(/"/g, '').replace(/;/g, ', ');
-                    voxelMap.set(key, { short_desc, coach_tip });
-                }
-            }
-        }
-        function updateAnalysis(roundedMeanX, roundedMeanY, roundedMeanZ) {
-            const lookupKey = `[${roundedMeanX},${roundedMeanY},${roundedMeanZ}]`;
-            const analysisData = voxelMap.get(lookupKey);
-            analysisDesc.textContent = analysisData ? analysisData.short_desc : 'No specific analysis for this combination.';
-            analysisTip.textContent = analysisData ? `Coaching Tip: ${analysisData.coach_tip}` : '';
-        }
-        function updateAverageAnalysis(roundedMeanX, roundedMeanY, roundedMeanZ) {
-            const lookupKey = `[${roundedMeanX},${roundedMeanY},${roundedMeanZ}]`;
-            const analysisData = voxelMap.get(lookupKey);
-            avgAnalysisDesc.textContent = analysisData ? analysisData.short_desc : 'No specific analysis for this combination.';
-            avgAnalysisTip.textContent = analysisData ? `Coaching Tip: ${analysisData.coach_tip}` : '';
-        }
-        const getMode = (arr) => {
-            if (!arr || arr.length === 0) return null;
-            const counts = {}; let maxCount = 0, mode = null;
-            for (const value of arr) {
-                counts[value] = (counts[value] || 0) + 1;
-                if (counts[value] > maxCount) { maxCount = counts[value]; mode = value; }
-            }
-            return mode;
-        };
-        const getGaussianData = (mean, stdDev = 1) => {
-            const gaussian = (x, m, s) => Math.exp(-0.5 * Math.pow((x - m) / s, 2)) / (s * Math.sqrt(2 * Math.PI));
-            return Array.from({length: 71}, (_, i) => parseFloat(gaussian(1 + i * 0.1, mean, stdDev).toFixed(4)));
-        };
-        
-        const chartLabels = Array.from({ length: 71 }, (_, i) => (1 + i * 0.1).toFixed(1));
-        const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '' } }, scales: { x: { grid: { display: false }, title: { display: true, text: 'Value' } }, y: { grid: { display: false }, title: { display: true, text: 'Probability Density' } } } };
-        const createChartData = (label, data, color) => ({ labels: chartLabels, datasets: [{ label, data, borderColor: `rgb(${color})`, backgroundColor: `rgba(${color}, 0.2)`, borderWidth: 2, fill: true, tension: 0.4 }] });
-        
-        function renderMainCharts(data) {
-            if (chartInstances.knowledge) chartInstances.knowledge.destroy();
-            chartInstances.knowledge = new Chart(document.getElementById('knowledge-density-chart'), { type: 'line', data: createChartData('Knowledge Density', data.knowledge_density.distribution_data, '75, 192, 192'), options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Knowledge Density' } } } });
-            if (chartInstances.familiarity) chartInstances.familiarity.destroy();
-            chartInstances.familiarity = new Chart(document.getElementById('familiarity-chart'), { type: 'line', data: createChartData('Familiarity', data.familiarity.distribution_data, '54, 162, 235'), options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Familiarity' } } } });
-            if (chartInstances.cognitive) chartInstances.cognitive.destroy();
-            chartInstances.cognitive = new Chart(document.getElementById('cognitive-load-chart'), { type: 'line', data: createChartData('Cognitive Load', data.cognitive_load.distribution_data, '255, 159, 64'), options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Cognitive Load' } } } });
-        }
-        function renderAverageCharts(data) {
-            if(!data || !data.knowledge_density || !data.familiarity || !data.cognitive_load) return;
-            if (avgChartInstances.knowledge) avgChartInstances.knowledge.destroy();
-            avgChartInstances.knowledge = new Chart(document.getElementById('avg-knowledge-density-chart'), { type: 'line', data: createChartData('Knowledge Density', data.knowledge_density.distribution_data, '75, 192, 192'), options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Avg. Knowledge Density' } } } });
-            if (avgChartInstances.familiarity) avgChartInstances.familiarity.destroy();
-            avgChartInstances.familiarity = new Chart(document.getElementById('avg-familiarity-chart'), { type: 'line', data: createChartData('Familiarity', data.familiarity.distribution_data, '54, 162, 235'), options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Avg. Familiarity' } } } });
-            if (avgChartInstances.cognitive) avgChartInstances.cognitive.destroy();
-            avgChartInstances.cognitive = new Chart(document.getElementById('avg-cognitive-load-chart'), { type: 'line', data: createChartData('Cognitive Load', data.cognitive_load.distribution_data, '255, 159, 64'), options: { ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Avg. Cognitive Load' } } } });
-        }
-
-        function initVoxelScene(canvasId, sceneState) {
-            const voxelCanvas = document.getElementById(canvasId);
-            sceneState.scene = new THREE.Scene(); sceneState.scene.background = new THREE.Color(0xf3f4f6);
-            sceneState.camera = new THREE.PerspectiveCamera(50, voxelCanvas.clientWidth / voxelCanvas.clientHeight, 0.1, 1000); sceneState.camera.position.set(1.2, 1.2, 1.2);
-            sceneState.renderer = new THREE.WebGLRenderer({ antialias: true, canvas: voxelCanvas }); sceneState.renderer.setSize(voxelCanvas.clientWidth, voxelCanvas.clientHeight);
-            sceneState.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(5, 10, 7.5); sceneState.scene.add(dirLight);
-            
-            const voxelSize = 1 / 8; const voxelGeom = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
-            for (let z = 1; z <= 8; z++) for (let y = 1; y <= 8; y++) for (let x = 1; x <= 8; x++) {
-                const voxel = new THREE.Mesh(voxelGeom, grayMaterial);
-                voxel.position.set((x - 0.5) / 8 - 0.5, (y - 0.5) / 8 - 0.5, (z - 0.5) / 8 - 0.5);
-                sceneState.scene.add(voxel); sceneState.grid.push(voxel);
-            }
-            
-            sceneState.outline = new THREE.LineSegments(new THREE.EdgesGeometry(voxelGeom), new THREE.LineBasicMaterial({ color: 0x992222 })); sceneState.scene.add(sceneState.outline);
-            sceneState.controls = new THREE.OrbitControls(sceneState.camera, sceneState.renderer.domElement); sceneState.controls.enableDamping = true; sceneState.controls.dampingFactor = 0.05;
-            
-            (function animate() {
-                requestAnimationFrame(animate);
-                sceneState.controls.update();
-                sceneState.renderer.render(sceneState.scene, sceneState.camera);
-            })();
-        }
-        function updateVoxelScene(voxelData, sceneState) {
-            if (sceneState.lastHighlighted) sceneState.lastHighlighted.material = grayMaterial;
-            if(sceneState.outline) sceneState.outline.visible = false;
-            if(!voxelData || !voxelData.roundedMean) return;
-            const { x, y, z } = voxelData.roundedMean;
-            const index = (x - 1) + (y - 1) * 8 + (z - 1) * 64;
-            if (sceneState.grid[index]) {
-                const newVoxel = sceneState.grid[index]; newVoxel.material = redMaterial;
-                sceneState.outline.position.copy(newVoxel.position);
-                sceneState.outline.visible = true; sceneState.lastHighlighted = newVoxel;
-            }
-        }
-        function updateAverageVoxelScene(calculationResult, sourceFiles) {
-            const sceneState = avgSceneState;
-            sceneState.grid.forEach(voxel => { voxel.material = grayMaterial; });
-            if (sceneState.outline) sceneState.outline.visible = false;
-            
-            if (sourceFiles && Array.isArray(sourceFiles)) {
-                sourceFiles.forEach(file => {
-                    const voxelData = file.data.analysis.voxel;
-                    if (voxelData && voxelData.roundedMean) {
-                        const { x, y, z } = voxelData.roundedMean;
-                        const index = (x - 1) + (y - 1) * 8 + (z - 1) * 64;
-                        if (sceneState.grid[index]) sceneState.grid[index].material = yellowMaterial;
-                    }
-                });
-            }
-            
-            const avgVoxelData = calculationResult.data.analysis.voxel;
-            if (avgVoxelData && avgVoxelData.roundedMean) {
-                const { x, y, z } = avgVoxelData.roundedMean;
-                const index = (x - 1) + (y - 1) * 8 + (z - 1) * 64;
-                if (sceneState.grid[index]) {
-                    const newVoxel = sceneState.grid[index];
-                    newVoxel.material = redMaterial;
-                    sceneState.outline.position.copy(newVoxel.position);
-                    sceneState.outline.visible = true;
-                }
-            }
-        }
-        function updateAllVisuals() {
-            const totalQuestions = surveyValues.length;
-            if (totalQuestions === 0) return;
-            
-            const questionsPerGroup = totalQuestions / 3;
-            const knowledgeDensity = surveyValues.slice(0, questionsPerGroup);
-            const familiarity = surveyValues.slice(questionsPerGroup, questionsPerGroup * 2);
-            const cognitiveLoad = surveyValues.slice(questionsPerGroup * 2, totalQuestions);
-
-            const mean = (arr) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-            const meanX = mean(knowledgeDensity), meanY = mean(familiarity), meanZ = mean(cognitiveLoad);
-            const roundedMeanX = Math.round(Math.min(Math.max(meanX, 1), 8)), roundedMeanY = Math.round(Math.min(Math.max(meanY, 1), 8)), roundedMeanZ = Math.round(Math.min(Math.max(meanZ, 1), 8));
-            const data = { timestamp: new Date().toISOString(), survey_results: surveyValues, analysis: { voxel: { mean: { x: +meanX.toFixed(2), y: +meanY.toFixed(2), z: +meanZ.toFixed(2) }, mode: { x: getMode(knowledgeDensity.map(Math.round)), y: getMode(familiarity.map(Math.round)), z: getMode(cognitiveLoad.map(Math.round)) }, roundedMean: { x: roundedMeanX, y: roundedMeanY, z: roundedMeanZ } }, graphs: { knowledge_density: { mean: +meanX.toFixed(2), distribution_data: getGaussianData(meanX, 1) }, familiarity: { mean: +meanY.toFixed(2), distribution_data: getGaussianData(meanY, 1) }, cognitive_load: { mean: +meanZ.toFixed(2), distribution_data: getGaussianData(meanZ, 1) } } } };
-            
-            jsonOutput.value = JSON.stringify(data, null, 2);
-            renderMainCharts(data.analysis.graphs);
-            updateVoxelScene(data.analysis.voxel, mainSceneState);
-            updateAnalysis(roundedMeanX, roundedMeanY, roundedMeanZ);
-        }
-
-        function showMessage(msg, color = 'green') {
-             messageArea.textContent = msg; messageArea.className = `text-xs text-${color}-600 mt-2 block text-center`;
-             setTimeout(() => { messageArea.textContent = '' }, 4000);
-        }
-        function updateUIWithLoadedData(data) {
-            if (data.survey_results && Array.isArray(data.survey_results) && data.survey_results.length === questionStrings.length) {
-                data.survey_results.forEach((v, i) => {
-                    const val = Math.min(Math.max(v, 1), 8);
-                    document.getElementById(`slider-${i + 1}`).value = val;
-                    document.getElementById(`value-${i + 1}`).textContent = val;
-                    surveyValues[i] = val;
-                });
-                updateAllVisuals();
-                showMessage('Personal survey data loaded.');
-            } else { showMessage('Saved survey data has a different number of questions. Resetting to default.', 'red'); }
-        }
-        
-        function setupEventListeners(loadedCoreData) {
-            questionStrings = loadedCoreData.questionStrings;
-            surveyValues = Array(questionStrings.length).fill(4); 
-            surveyIntroText.textContent = `Enter ${questionStrings.length} values to compute the mean, mode, and visualize the data in 3D and 2D.`;
-
-            questionStrings.forEach((qText, i) => {
-                const item = document.createElement('div');
-                item.className = 'slider-item';
-                const label = document.createElement('label');
-                label.className = 'block text-sm font-medium text-gray-700';
-                label.innerHTML = `${qText} - Value: <span id="value-${i + 1}">4</span>`;
-                const sliderContainer = document.createElement('div');
-                sliderContainer.className = 'relative pt-1';
-                const slider = document.createElement('input');
-                slider.type = 'range'; slider.className = 'w-full'; slider.id = `slider-${i + 1}`;
-                slider.min = '1'; slider.max = '8'; slider.value = '4';
-                const ticksContainer = document.createElement('div');
-                ticksContainer.className = 'w-full flex justify-between text-xs text-gray-400 px-1';
-                ticksContainer.innerHTML = `<span>|</span><span>|</span><span>|</span><span>|</span><span>|</span><span>|</span><span>|</span><span>|</span>`;
-                slider.addEventListener('input', (e) => {
-                    surveyValues[i] = parseInt(e.target.value);
-                    document.getElementById(`value-${i + 1}`).textContent = e.target.value;
-                    updateAllVisuals();
-                });
-                sliderContainer.appendChild(slider);
-                sliderContainer.appendChild(ticksContainer);
-                item.appendChild(label);
-                item.appendChild(sliderContainer);
-                surveyQuestionsDiv.appendChild(item);
-            });
-            
-            resetButton.addEventListener('click', () => {
-                surveyValues.fill(4);
-                document.querySelectorAll('input[type="range"]').forEach((slider, i) => { slider.value = 4; document.getElementById(`value-${i + 1}`).textContent = 4; });
-                updateAllVisuals();
-                showMessage('Sliders reset!');
-                averageChartsContainer.classList.add('hidden');
-                averageVoxelContainer.classList.add('hidden');
-                averageAnalysisContainer.classList.add('hidden');
-            });
-
-            saveButton.addEventListener('click', async () => {
-                if (!personRoleId || !iterationId) return showMessage('Cannot save in standalone mode.', 'red');
-                const userUnitId = urlParams.get('userUnitId');
-                try {
-                    const saveData = { ...JSON.parse(jsonOutput.value), personRoleId, orgUnitId: userUnitId, iterationId };
-                    const response = await fetch(`${baseUrl}/api/saved-files`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(saveData) });
-                    if (!response.ok) throw new Error('Server failed to save file.');
-                    const result = await response.json();
-                    showMessage(`File saved as ${result.filename}`);
-                } catch (error) { showMessage('Error saving file.', 'red'); }
-            });
-
-            calculateSelectedButton.addEventListener('click', async () => {
-                if (!personRoleId || !iterationId) return showMessage('Cannot calculate in standalone mode.', 'red');
-                if (!currentUserIsManager) return showMessage('Only managers can perform calculations.', 'red');
-                
-                const userUnitId = urlParams.get('userUnitId');
-                try {
-                    showMessage('Calculating unit average, please wait...');
-                    const response = await fetch(`${baseUrl}/api/calculate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ personRoleId, orgUnitId: userUnitId, iterationId })
-                    });
-            
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || 'Server failed to calculate average.');
-                    }
-            
-                    const result = await response.json();
-                    showMessage(result.message);
-
-                    if (result && result.calculationResult && result.sourceFiles) {
-                        renderAverageCharts(result.calculationResult.data.analysis.graphs);
-                        averageChartsContainer.classList.remove('hidden');
-                        averageVoxelContainer.classList.remove('hidden');
-                        
-                        setTimeout(() => {
-                            updateAverageVoxelScene(result.calculationResult, result.sourceFiles);
-                            const avgVoxelCanvas = document.getElementById('avg-voxel-canvas');
-                            const container = avgVoxelCanvas.parentElement;
-                            if (avgSceneState.renderer && avgSceneState.camera && container) {
-                                avgSceneState.renderer.setSize(container.clientWidth, container.clientHeight);
-                                avgSceneState.camera.aspect = container.clientWidth / container.clientHeight;
-                                avgSceneState.camera.updateProjectionMatrix();
-                            }
-                        }, 100);
-
-                        const { x, y, z } = result.calculationResult.data.analysis.voxel.roundedMean;
-                        updateAverageAnalysis(x, y, z);
-                        averageAnalysisContainer.classList.remove('hidden');
-
-                    } else {
-                        averageChartsContainer.classList.add('hidden');
-                        averageVoxelContainer.classList.add('hidden');
-                        averageAnalysisContainer.classList.add('hidden');
-                    }
-            
-                } catch (error) {
-                    showMessage(`Error: ${error.message}`, 'red');
-                    console.error(error);
-                }
-            });
-
-            saveTargetButton.addEventListener('click', async () => {
-                if (!personId) return;
-                try {
-                    const response = await fetch(`${baseUrl}/api/app-data/target`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ value: targetTextarea.value, personId })
-                    });
-                    if (!response.ok) throw new Error((await response.json()).message || 'Failed to save target.');
-                    const result = await response.json();
-                    showMessage(result.message);
-                } catch (error) {
-                    showMessage(`Error: ${error.message}`, 'red');
-                }
-            });
-
-            saveDescriptionButton.addEventListener('click', async () => {
-                if (!personRoleId) return;
-                try {
-                    const response = await fetch(`${baseUrl}/api/role-description`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ description: descriptionTextarea.value, personRoleId })
-                    });
-                    if (!response.ok) throw new Error((await response.json()).message || 'Failed to save description.');
-                    const result = await response.json();
-                    showMessage(result.message);
-                } catch (error) {
-                    showMessage(`Error: ${error.message}`, 'red');
-                }
-            });
-        }
-        
-        // --- INITIALIZATION ---
-        await loadIterationContext();
-        const coreData = await loadInitialCoreData();
-        if (coreData) {
-            await handleUserContext(); // Must run after coreData to have iterationId, but before setupEventListeners
-            await loadAppData();
-            parseVoxelData(coreData.voxelCsvData);
-            setupEventListeners(coreData);
-            initVoxelScene('voxel-canvas', mainSceneState);
-            initVoxelScene('avg-voxel-canvas', avgSceneState);
-            await loadInitialSurveys();
-            updateAllVisuals();
-        }
+  // ---------- Supabase data helpers ----------
+  async function getActiveIteration(){
+    const { data, error } = await supabase.from('iterations').select('id,name,start_date,end_date,question_set').is('end_date', null).single();
+    if(error) throw error; return data;
+  }
+  async function getIterationById(id){
+    const { data, error } = await supabase.from('iterations').select('id,name,start_date,end_date,question_set').eq('id', id).single();
+    if(error) throw error; return data;
+  }
+  async function getFirstIterationId(){
+    const { data, error } = await supabase.from('iterations').select('id').order('id',{ascending:true}).limit(1).single();
+    if(error) throw error; return data?.id ?? null;
+  }
+  async function getPersonRoleContext(personRoleId){
+    const pr = await supabase.from('person_roles').select('id, person_id, org_unit_id, is_manager, iteration_id, description').eq('id', personRoleId).maybeSingle();
+    if(pr.error || !pr.data) throw (pr.error || new Error('Person role not found'));
+    const person = await supabase.from('people').select('id, name').eq('id', pr.data.person_id).single();
+    if(person.error) throw person.error;
+    const unit = await supabase.from('organization_units').select('id, name, parent_id').eq('id', pr.data.org_unit_id).single();
+    if(unit.error) throw unit.error;
+    const firstIterId = await getFirstIterationId();
+    const isRootUnit = unit.data.parent_id === null;
+    const isRootManager = isRootUnit && pr.data.is_manager;
+    return {
+      personRoleId: pr.data.id,
+      personId: person.data.id,
+      name: person.data.name,
+      is_manager: pr.data.is_manager,
+      description: pr.data.description,
+      org_unit_id: unit.data.id,
+      orgUnitName: unit.data.name,
+      isRootUnit, isRootManager,
+      firstIterationId: firstIterId
     };
-</script>
+  }
+  async function getAppDataKey(key){
+    const { data, error } = await supabase.from('app_data').select('value').eq('key', key).maybeSingle();
+    if(error) throw error; return data ? data.value : '';
+  }
+  async function setAppDataTarget(value, personId){
+    const existing = await supabase.from('app_data').select('key').eq('key','target').maybeSingle();
+    if(existing.data){
+      const { error } = await supabase.from('app_data').update({ value, updated_by_person_id: personId, updated_at: new Date().toISOString()}).eq('key','target');
+      if(error) throw error;
+    } else {
+      const { error } = await supabase.from('app_data').insert({ key:'target', value, updated_by_person_id: personId, updated_at: new Date().toISOString() });
+      if(error) throw error;
+    }
+    return { message:'Data saved successfully.' };
+  }
+  async function getOrganizationStats(iterationId){
+    const [targetEntered, totalRoles, descriptions, cognitive, totalUnits, calculatedUnits] = await Promise.all([
+      supabase.from('app_data').select('value').eq('key','target').not('value','is', null).neq('value',''),
+      supabase.from('person_roles').select('id', { count:'exact', head:true }).eq('iteration_id', iterationId),
+      supabase.from('person_roles').select('id', { count:'exact', head:true }).eq('iteration_id', iterationId).not('description','is', null).neq('description',''),
+      supabase.from('surveys').select('person_role_id', { count:'exact', head:true }).eq('survey_type','individual').eq('iteration_id', iterationId),
+      supabase.from('organization_units').select('id', { count:'exact', head:true }).eq('iteration_id', iterationId),
+      supabase.from('surveys').select('org_unit_id', { count:'exact', head:true }).eq('survey_type','calculated').eq('iteration_id', iterationId),
+    ]);
+    return {
+      targetEntered: (targetEntered.data && targetEntered.data.length>0) ? 1 : 0,
+      totalRoles: totalRoles.count||0,
+      descriptionsEntered: descriptions.count||0,
+      cognitiveDataEntered: cognitive.count||0,
+      totalUnits: totalUnits.count||0,
+      calculatedUnits: calculatedUnits.count||0
+    };
+  }
+  async function getInitialSurveys(personRoleId, userOrgUnitId){
+    const ind = await supabase.from('surveys').select('survey_results, analysis_voxel, analysis_graphs').eq('person_role_id', personRoleId).eq('survey_type','individual').maybeSingle();
+    const calc = await supabase.from('surveys').select('survey_results, analysis_voxel, analysis_graphs').eq('org_unit_id', userOrgUnitId).eq('survey_type','calculated').maybeSingle();
+    const individualData = ind.data ? { survey_results: ind.data.survey_results, analysis: { voxel: ind.data.analysis_voxel, graphs: ind.data.analysis_graphs } } : null;
+    const calculatedData = calc.data ? { survey_results: calc.data.survey_results, analysis: { voxel: calc.data.analysis_voxel, graphs: calc.data.analysis_graphs } } : null;
+    return { individualData, calculatedData };
+  }
+  async function saveIndividualSurvey(payload){
+    const ctx = await getPersonRoleContext(payload.personRoleId);
+    const roleLabel = ctx.is_manager ? 'manager' : 'coworker';
+    const filename = `cognitive_data_${payload.orgUnitId}_${ctx.name}_${roleLabel}.json`;
+    const existing = await supabase.from('surveys').select('id').eq('person_role_id', payload.personRoleId).eq('survey_type','individual').maybeSingle();
+    const row = { person_role_id: payload.personRoleId, survey_type:'individual', filename, survey_results: payload.survey_results, analysis_voxel: payload.analysis.voxel, analysis_graphs: payload.analysis.graphs, org_unit_id: payload.orgUnitId, iteration_id: payload.iterationId };
+    if(existing.data){ const { error } = await supabase.from('surveys').update(row).eq('id', existing.data.id); if(error) throw error; }
+    else { const { error } = await supabase.from('surveys').insert(row); if(error) throw error; }
+    return { filename };
+  }
+  async function listSubtreeUnitIds(rootId, iterationId){
+    const { data: units, error } = await supabase.from('organization_units').select('id,parent_id').eq('iteration_id', iterationId);
+    if(error) throw error;
+    const children = new Map();
+    units.forEach(u=>{ const p = (u.parent_id===null?'rootnull':u.parent_id); if(!children.has(p)) children.set(p,[]); children.get(p).push(u.id); });
+    const result = []; const stack=[rootId];
+    while(stack.length){ const id=stack.pop(); result.push(id); (children.get(id)||[]).forEach(x=>stack.push(x)); }
+    return result;
+  }
+  async function calculateAverageForUnit(managerPersonRoleId, orgUnitId, iterationId){
+    const ctx = await getPersonRoleContext(managerPersonRoleId);
+    if(!ctx.is_manager) throw new Error('Permission denied: Only managers can perform calculations.');
+    const subtreeIds = await listSubtreeUnitIds(orgUnitId, iterationId);
+    const { data: rows, error } = await supabase.from('surveys').select('filename, survey_results, analysis_voxel, org_unit_id').in('org_unit_id', subtreeIds).eq('survey_type','individual').eq('iteration_id', iterationId);
+    if(error) throw error;
+    if(!rows || rows.length===0) throw new Error('No individual surveys found in this unit or its subordinates to calculate.');
+    const allSurveyResults = rows.map(r=>r.survey_results);
+    const sourceFilesData = rows.map(r=>({ filename:r.filename, data:{ analysis:{ voxel:r.analysis_voxel }}}));
+    const numFiles = allSurveyResults.length;
+    const totalQuestions = allSurveyResults[0].length;
+    const qpg = totalQuestions/3;
+    const averagedSurveyResults = Array(totalQuestions).fill(0);
+    for(const set of allSurveyResults){ for(let i=0;i<totalQuestions;i++) averagedSurveyResults[i]+= set[i]/numFiles; }
+    const mean=(arr)=>arr.reduce((a,b)=>a+b,0)/arr.length;
+    const knowledgeAvg = mean(averagedSurveyResults.slice(0,qpg));
+    const familiarityAvg = mean(averagedSurveyResults.slice(qpg,2*qpg));
+    const cognitiveLoadAvg = mean(averagedSurveyResults.slice(2*qpg));
+    const averagedData = { timestamp:new Date().toISOString(), survey_results: averagedSurveyResults.map(v=>Math.ceil(v)), analysis:{ voxel:{ mean:{x:+knowledgeAvg.toFixed(2), y:+familiarityAvg.toFixed(2), z:+cognitiveLoadAvg.toFixed(2)}, mode:{ x:getMode(averagedSurveyResults.slice(0,qpg).map(Math.round)), y:getMode(averagedSurveyResults.slice(qpg,2*qpg).map(Math.round)), z:getMode(averagedSurveyResults.slice(2*qpg).map(Math.round)) }, roundedMean:{ x:Math.round(Math.min(Math.max(knowledgeAvg,1),8)), y:Math.round(Math.min(Math.max(familiarityAvg,1),8)), z:Math.round(Math.min(Math.max(cognitiveLoadAvg,1),8)) } }, graphs:{ knowledge_density:{ mean:+knowledgeAvg.toFixed(2), distribution_data:getGaussianData(knowledgeAvg)}, familiarity:{ mean:+familiarityAvg.toFixed(2), distribution_data:getGaussianData(familiarityAvg)}, cognitive_load:{ mean:+cognitiveLoadAvg.toFixed(2), distribution_data:getGaussianData(cognitiveLoadAvg)} } } };
+    const newFilename = `calc_${orgUnitId}.json`;
+    const existing = await supabase.from('surveys').select('id').eq('org_unit_id', orgUnitId).eq('survey_type','calculated').maybeSingle();
+    const row = { org_unit_id: orgUnitId, survey_type:'calculated', filename:newFilename, survey_results: averagedSurveyResults, analysis_voxel: averagedData.analysis.voxel, analysis_graphs: averagedData.analysis.graphs, iteration_id: iterationId };
+    if(existing.data){ const { error } = await supabase.from('surveys').update(row).eq('id', existing.data.id); if(error) throw error; }
+    else { const { error } = await supabase.from('surveys').insert(row); if(error) throw error; }
+    return { message:`Calculation for OrgUnit ${orgUnitId} successful. Saved as ${newFilename}.`, calculationResult:{ filename:newFilename, data:averagedData }, sourceFiles: sourceFilesData };
+  }
 
+  // ---------- Loaders ----------
+  async function loadIterationContext(){
+    dbg('→ loadIterationContext');
+    try{
+      activeIteration = iterationIdParam ? await getIterationById(parseInt(iterationIdParam,10)) : await getActiveIteration();
+      const qsName = (activeIteration.question_set||'Normal_Analysis_60.json').replace('.json','').replace(/_/g,' ');
+      iterationDisplay.innerHTML = `Active Iteration: <span class="font-bold">${activeIteration.name} (ID: ${activeIteration.id})</span> | Question Set: <span class="font-bold">${qsName}</span>`;
+      dbg('✓ activeIteration', activeIteration);
+    }catch(e){
+      iterationDisplay.textContent = `Error: ${e.message}`;
+      iterationDisplay.classList.remove('text-blue-600'); iterationDisplay.classList.add('text-red-600');
+      dbg('✗ loadIterationContext', e.message);
+      throw e;
+    }
+  }
+
+  async function loadCoreFiles(){
+    dbg('→ loadCoreFiles');
+    const qfile = activeIteration?.question_set || 'Normal_Analysis_60.json';
+    const [vox, qs] = await Promise.all([ fetch('/data/voxel_data.csv'), fetch(`/data/${qfile}`) ]);
+    if(!vox.ok) throw new Error('voxel_data.csv not found'); if(!qs.ok) throw new Error(`${qfile} not found`);
+    const voxelCsvData = await vox.text();
+    const loadedQuestions = await qs.json();
+    dbg('✓ core files', { voxelCsvLen: voxelCsvData.length, qcount: loadedQuestions.length });
+    return { voxelCsvData, loadedQuestions };
+  }
+
+  function setupSurveyUI(loadedQuestions){
+    questionStrings = loadedQuestions;
+    surveyValues = Array(questionStrings.length).fill(4);
+    surveyIntroText.textContent = `Enter ${questionStrings.length} values to compute the mean, mode, and visualize the data in 3D and 2D.`;
+    surveyQuestionsDiv.innerHTML='';
+    questionStrings.forEach((qText, i)=>{
+      const item = document.createElement('div'); item.className='slider-item';
+      const label = document.createElement('label'); label.className='block text-sm font-medium text-gray-700'; label.innerHTML = `${qText} - Value: <span id="value-${i+1}">4</span>`;
+      const sliderContainer = document.createElement('div'); sliderContainer.className='relative pt-1';
+      const slider = document.createElement('input'); slider.type='range'; slider.className='w-full'; slider.id=`slider-${i+1}`; slider.min='1'; slider.max='8'; slider.value='4';
+      const ticks = document.createElement('div'); ticks.className='w-full flex justify-between text-xs text-gray-400 px-1'; ticks.innerHTML='<span>|</span><span>|</span><span>|</span><span>|</span><span>|</span><span>|</span><span>|</span><span>|</span>';
+      slider.addEventListener('input', e=>{ surveyValues[i] = parseInt(e.target.value,10); document.getElementById(`value-${i+1}`).textContent = e.target.value; updateAllVisuals(); });
+      sliderContainer.appendChild(slider); sliderContainer.appendChild(ticks);
+      item.appendChild(label); item.appendChild(sliderContainer); surveyQuestionsDiv.appendChild(item);
+    });
+  }
+
+  function updateAllVisuals(){
+    const n = surveyValues.length; if(n===0) return;
+    const qpg = n/3;
+    const kd = surveyValues.slice(0,qpg);
+    const fm = surveyValues.slice(qpg, 2*qpg);
+    const cl = surveyValues.slice(2*qpg);
+    const mean=(arr)=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
+    const mx = mean(kd), my = mean(fm), mz = mean(cl);
+    const rx = Math.round(Math.min(Math.max(mx,1),8)), ry = Math.round(Math.min(Math.max(my,1),8)), rz = Math.round(Math.min(Math.max(mz,1),8));
+    const data = {
+      timestamp: new Date().toISOString(),
+      survey_results: surveyValues,
+      analysis: {
+        voxel: { mean: {x:+mx.toFixed(2), y:+my.toFixed(2), z:+mz.toFixed(2)},
+                 mode: {x:getMode(kd.map(Math.round)), y:getMode(fm.map(Math.round)), z:getMode(cl.map(Math.round))},
+                 roundedMean: {x:rx, y:ry, z:rz} },
+        graphs: {
+          knowledge_density:{ mean:+mx.toFixed(2), distribution_data:getGaussianData(mx,1)},
+          familiarity:{ mean:+my.toFixed(2), distribution_data:getGaussianData(my,1)},
+          cognitive_load:{ mean:+mz.toFixed(2), distribution_data:getGaussianData(mz,1)}
+        }
+      }
+    };
+    jsonOutput.value = JSON.stringify(data, null, 2);
+    renderMainCharts(data.analysis.graphs);
+    updateVoxelScene(data.analysis.voxel, mainSceneState);
+    updateAnalysis(rx, ry, rz);
+  }
+
+  function renderStats(stats){
+    statsTableBody.innerHTML='';
+    const pct=(num,den)=> den===0?'N/A':`${((num/den)*100).toFixed(1)}%`;
+    const rows=[
+      { label:'Is the Objective of the organization entered?', value: stats.targetEntered>0?'Yes':'No', percent: stats.targetEntered>0?'100%':'0%' },
+      { label:'Total number of assigned roles:', value: stats.totalRoles, percent:'100%' },
+      { label:'Total number of roles with a "Description":', value: stats.descriptionsEntered, percent:pct(stats.descriptionsEntered, stats.totalRoles)},
+      { label:'Total number of roles with "cognitive_data":', value: stats.cognitiveDataEntered, percent:pct(stats.cognitiveDataEntered, stats.totalRoles)},
+      { label:'Total number of organizational units:', value: stats.totalUnits, percent:'100%'},
+      { label:'Total number of units with a calculated average:', value: stats.calculatedUnits, percent:pct(stats.calculatedUnits, stats.totalUnits)},
+    ];
+    rows.forEach(r=>{
+      const tr=document.createElement('tr'); tr.className='bg-white border-b';
+      tr.innerHTML = `<td class="px-6 py-2 font-medium text-gray-900 whitespace-nowrap">${r.label}</td><td class="px-6 py-2 text-center">${r.value}</td><td class="px-6 py-2 text-center">${r.percent}</td>`;
+      statsTableBody.appendChild(tr);
+    });
+    statsSection.classList.remove('hidden');
+  }
+
+  // ---------- Events ----------
+  resetButton.addEventListener('click', ()=>{
+    surveyValues.fill(4);
+    document.querySelectorAll('input[type="range"]').forEach((slider,i)=>{ slider.value=4; const v=document.getElementById(`value-${i+1}`); if(v) v.textContent=4; });
+    updateAllVisuals(); showMessage('Sliders reset!');
+    averageChartsContainer.classList.add('hidden'); averageVoxelContainer.classList.add('hidden'); averageAnalysisContainer.classList.add('hidden');
+  });
+
+  saveButton.addEventListener('click', async ()=>{
+    try{
+      if(!personContext || !activeIteration) return showMessage('Missing context.', 'red');
+      const payload = { ...JSON.parse(jsonOutput.value), personRoleId: personContext.personRoleId, orgUnitId: personContext.org_unit_id, iterationId: activeIteration.id };
+      const res = await saveIndividualSurvey(payload);
+      showMessage(`File saved as ${res.filename}`);
+    }catch(e){ dbg('✗ saveButton', e.message); showMessage('Error saving file.','red'); }
+  });
+
+  calculateSelectedButton.addEventListener('click', async ()=>{
+    try{
+      if(!personContext?.is_manager) return showMessage('Only managers can perform calculations.','red');
+      showMessage('Calculating unit average...');
+      const result = await calculateAverageForUnit(personContext.personRoleId, personContext.org_unit_id, activeIteration.id);
+      showMessage(result.message);
+      if(result && result.calculationResult){
+        renderAverageCharts(result.calculationResult.data.analysis.graphs);
+        averageChartsContainer.classList.remove('hidden'); averageVoxelContainer.classList.remove('hidden');
+        setTimeout(()=>{
+          updateAverageVoxelScene(result.calculationResult, result.sourceFiles||[]);
+          const avgVoxelCanvas = document.getElementById('avg-voxel-canvas'); const container = avgVoxelCanvas.parentElement;
+          if(avgSceneState.renderer && avgSceneState.camera && container){ avgSceneState.renderer.setSize(container.clientWidth, container.clientHeight); avgSceneState.camera.aspect = container.clientWidth/container.clientHeight; avgSceneState.camera.updateProjectionMatrix(); }
+        }, 100);
+        const {x,y,z} = result.calculationResult.data.analysis.voxel.roundedMean; updateAverageAnalysis(x,y,z);
+        averageAnalysisContainer.classList.remove('hidden');
+      }
+    }catch(e){ dbg('✗ calculateSelectedButton', e.message); showMessage(e.message || 'Calculation failed.','red'); }
+  });
+
+  saveTargetButton.addEventListener('click', async ()=>{
+    try{
+      if(!personContext) return;
+      const isFirst = personContext && personContext.firstIterationId === activeIteration.id;
+      const canEdit = personContext.isRootManager && isFirst;
+      if(!canEdit) return showMessage('Target can only be set by root manager in first iteration.','red');
+      const res = await setAppDataTarget(targetTextarea.value, personContext.personId); showMessage(res.message);
+    }catch(e){ showMessage(e.message || 'Failed to save target.','red'); }
+  });
+
+  saveDescriptionButton.addEventListener('click', async ()=>{
+    try{
+      if(!personContext) return;
+      const { error } = await supabase.from('person_roles').update({ description: descriptionTextarea.value }).eq('id', personContext.personRoleId);
+      if(error) throw error; showMessage('Description saved successfully.');
+    }catch(e){ showMessage(e.message || 'Failed to save description.','red'); }
+  });
+
+  // ---------- Init ----------
+  window.addEventListener('load', async ()=>{
+    try{
+      dbg('✓ init start');
+      await loadIterationContext();
+      const { voxelCsvData, loadedQuestions } = await loadCoreFiles();
+      parseVoxelData(voxelCsvData);
+      setupSurveyUI(loadedQuestions);
+      initVoxelScene('voxel-canvas', mainSceneState);
+      initVoxelScene('avg-voxel-canvas', avgSceneState);
+      updateAllVisuals();
+
+      if(personRoleId){ 
+        personContext = await getPersonRoleContext(personRoleId);
+        dbg('✓ personContext', personContext);
+        userContextDisplay.innerHTML = `<span class="font-semibold">User:</span> <span class="text-blue-600">${personContext.name}</span> | <span class="font-semibold">Role:</span> <span class="text-blue-600">${personContext.is_manager ? 'Manager' : 'Coworker'}</span> | <span class="font-semibold">Unit:</span> <span class="text-blue-600">${personContext.orgUnitName}</span>`;
+        descriptionTextarea.value = personContext.description || '';
+        const isFirstIteration = (parseInt(activeIteration.id,10) === personContext.firstIterationId);
+        const canEditTarget = personContext.isRootManager && isFirstIteration;
+        targetTextarea.readOnly = !canEditTarget; saveTargetButton.disabled = !canEditTarget;
+        if(!canEditTarget && isFirstIteration===false){ targetTextarea.placeholder = "The Target is locked after the first iteration."; }
+
+        // Load target
+        try{ const t = await getAppDataKey('target'); targetTextarea.value = t || ''; }catch(e){ dbg('target load error', e.message); }
+
+        // Load initial survey(s)
+        try{
+          const data = await getInitialSurveys(personContext.personRoleId, personContext.org_unit_id);
+          if(data.individualData){
+            const res = data.individualData;
+            if(res.survey_results && res.survey_results.length === questionStrings.length){
+              res.survey_results.forEach((v,i)=>{
+                const val = Math.min(Math.max(v,1),8);
+                const slider = document.getElementById(`slider-${i+1}`); const label=document.getElementById(`value-${i+1}`);
+                if(slider){ slider.value = val; } if(label){ label.textContent = val; } surveyValues[i]=val;
+              });
+              updateAllVisuals(); showMessage('Personal survey data loaded.');
+            }
+          }
+          if(data.calculatedData){
+            renderAverageCharts(data.calculatedData.analysis.graphs);
+            averageChartsContainer.classList.remove('hidden'); averageVoxelContainer.classList.remove('hidden');
+            setTimeout(()=>{
+              updateAverageVoxelScene({ data: data.calculatedData }, []);
+              const avgVoxelCanvas = document.getElementById('avg-voxel-canvas'); const container = avgVoxelCanvas.parentElement;
+              if(avgSceneState.renderer && avgSceneState.camera && container){ avgSceneState.renderer.setSize(container.clientWidth, container.clientHeight); avgSceneState.camera.aspect = container.clientWidth/container.clientHeight; avgSceneState.camera.updateProjectionMatrix(); }
+            }, 100);
+            const {x,y,z} = data.calculatedData.analysis.voxel.roundedMean; updateAverageAnalysis(x,y,z);
+            averageAnalysisContainer.classList.remove('hidden');
+          }
+        }catch(e){ dbg('initial surveys load error', e.message); }
+
+        // Load org stats if manager
+        try{
+          if(personContext.is_manager){
+            const stats = await getOrganizationStats(activeIteration.id);
+            renderStats(stats);
+          }
+        }catch(e){ dbg('stats load error', e.message); }
+      } else {
+        userContextDisplay.innerHTML = `<span class="font-semibold">Mode:</span> <span class="text-red-600">Invalid Access. Please login.</span>`;
+        [saveButton, calculateSelectedButton, saveTargetButton, saveDescriptionButton].forEach(btn=>btn.disabled = true);
+        [targetTextarea, descriptionTextarea].forEach(ta=>ta.readOnly = true);
+      }
+      dbg('✓ init done');
+    }catch(e){
+      dbg('✗ init failed', e.message);
+    }
+  });
+})();
+</script>
 </body>
 </html>
+

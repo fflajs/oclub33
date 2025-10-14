@@ -1,120 +1,253 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login to Cognitive Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="w-full max-w-sm bg-white p-8 rounded-lg shadow-lg">
-        <h1 class="text-3xl font-bold mb-2 text-center">Cognitive Visualizer Login</h1>
-        <p id="iteration-display" class="text-gray-600 mb-6 text-center">Please enter your details for the active iteration.</p>
-        
-        <form id="login-form">
-            <div class="mb-4">
-                <label for="name" class="block text-gray-700 text-sm font-bold mb-2">Name</label>
-                <input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-            </div>
-             <div class="mb-4">
-                <label for="org-unit" class="block text-gray-700 text-sm font-bold mb-2">Organizational Unit</label>
-                <select id="org-unit" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                    <option value="">Loading units...</option>
-                </select>
-            </div>
-             <div class="mb-6">
-                <label for="role" class="block text-gray-700 text-sm font-bold mb-2">Role</label>
-                <select id="role" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                    <option value="false">Coworker</option>
-                    <option value="true">Manager</option>
-                </select>
-            </div>
-            <div class="flex items-center justify-between">
-                <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                    Login
-                </button>
-                <a href="/portal.html" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-                    Back to Portal
-                </a>
-            </div>
-        </form>
-        <p id="error-message" class="text-red-500 text-xs italic mt-4 text-center"></p>
-    </div>
+  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+    <h1 class="text-3xl font-bold text-center mb-4">Cognitive Visualizer</h1>
+    <p id="iteration-info" class="text-center text-blue-600 mb-6">
+      Loading active iteration...
+    </p>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const orgUnitSelect = document.getElementById('org-unit');
-            const errorMessage = document.getElementById('error-message');
-            const iterationDisplay = document.getElementById('iteration-display');
-            let activeIterationId = null;
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label class="block text-gray-700">Your Name</label>
+        <input
+          type="text"
+          id="userName"
+          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+          placeholder="Enter your name"
+          required
+        />
+      </div>
 
-            try {
-                const iterationResponse = await fetch('/api/active-iteration');
-                if (!iterationResponse.ok) throw new Error('No active iteration found. Please contact an administrator.');
-                const activeIteration = await iterationResponse.json();
-                activeIterationId = activeIteration.id;
+      <div>
+        <label class="block text-gray-700">Select Organization Unit</label>
+        <select
+          id="unitSelect"
+          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+          required
+        >
+          <option value="">Loading...</option>
+        </select>
+      </div>
 
-                // Update the subtitle with the active iteration name
-                iterationDisplay.textContent = `Please enter your details for the active iteration: ${activeIteration.name} (ID: ${activeIteration.id})`;
+      <div>
+        <label class="block text-gray-700">Select Role</label>
+        <select
+          id="roleSelect"
+          class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+          required
+        >
+          <option value="">Select a role...</option>
+          <option value="true">Manager</option>
+          <option value="false">Coworker</option>
+        </select>
+      </div>
 
-                const orgDataResponse = await fetch(`/api/org-data/${activeIterationId}`);
-                if (!orgDataResponse.ok) throw new Error('Could not load organizational units for the active iteration.');
-                const data = await orgDataResponse.json();
+      <button
+        type="submit"
+        class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+      >
+        Login
+      </button>
 
-                orgUnitSelect.innerHTML = '<option value="">Select a unit</option>';
-                data.units.forEach(unit => {
-                    const option = document.createElement('option');
-                    option.value = unit.id;
-                    option.textContent = unit.name;
-                    orgUnitSelect.appendChild(option);
-                });
-            } catch (error) {
-                iterationDisplay.textContent = `Error: ${error.message}`;
-                iterationDisplay.classList.remove('text-gray-600');
-                iterationDisplay.classList.add('text-red-600');
-                orgUnitSelect.innerHTML = `<option value="">Could not load units</option>`;
-                orgUnitSelect.disabled = true;
-                document.querySelector('button[type="submit"]').disabled = true;
-            }
+      <p id="login-message" class="text-center text-sm mt-3 text-gray-600"></p>
+    </form>
 
-            document.getElementById('login-form').addEventListener('submit', async function(event) {
-                event.preventDefault();
-                
-                const name = document.getElementById('name').value.trim();
-                const orgUnitId = document.getElementById('org-unit').value;
-                const isManager = document.getElementById('role').value;
-                errorMessage.textContent = '';
+    <a
+      href="/index.html"
+      class="block text-center mt-6 text-blue-500 hover:text-blue-700 font-semibold"
+    >
+      Back to Home
+    </a>
+  </div>
 
-                if (!name || !orgUnitId || isManager === '' || !activeIterationId) {
-                    errorMessage.textContent = 'Please fill out all fields.';
-                    return;
-                }
+  <script>
+    console.log("🟢 login.html: script start");
 
-                try {
-                    const response = await fetch('/api/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, orgUnitId, isManager: isManager === 'true', iterationId: activeIterationId })
-                    });
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
 
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || 'Login failed.');
+    console.log("→ Creating Supabase client...");
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("✅ Supabase client created:", !!sb);
 
-                    const user = data;
-                    
-                    const url = new URL('/cognitive-tool.html', window.location.origin);
-                    url.searchParams.set('personRoleId', user.personRoleId);
-                    url.searchParams.set('iterationId', activeIterationId);
-                    url.searchParams.set('userUnitId', user.org_unit_id);
+    let activeIteration = null;
+    let orgUnits = [];
 
-                    window.location.href = url.href;
+    async function loadActiveIteration() {
+      const info = document.getElementById("iteration-info");
+      info.textContent = "Connecting to Supabase...";
+      console.log("→ loadActiveIteration() start");
 
-                } catch (error) {
-                    errorMessage.textContent = error.message;
-                }
-            });
+      try {
+        const { data, error } = await sb
+          .from("iterations")
+          .select("id, name")
+          .is("end_date", null)
+          .limit(1)
+          .single();
+
+        console.log("🔍 Supabase response for iterations:", { data, error });
+
+        if (error) throw error;
+        if (!data) throw new Error("No active iteration found.");
+
+        activeIteration = data;
+        info.textContent = `Active Iteration: ${data.name}`;
+        console.log("✅ Active iteration loaded:", data);
+        return data.id;
+      } catch (err) {
+        console.error("❌ loadActiveIteration() error:", err);
+        info.textContent = "Error loading active iteration.";
+        info.classList.add("text-red-600");
+        return null;
+      }
+    }
+
+    async function loadOrganizationUnits(iterationId) {
+      console.log("→ loadOrganizationUnits() start with iterationId:", iterationId);
+      const selectEl = document.getElementById("unitSelect");
+      selectEl.innerHTML = '<option value="">Loading...</option>';
+
+      try {
+        const { data, error } = await sb
+          .from("organization_units")
+          .select("id, name")
+          .eq("iteration_id", iterationId)
+          .order("name", { ascending: true });
+
+        console.log("🔍 Org units response:", { data, error });
+
+        if (error) throw error;
+        orgUnits = data || [];
+        console.log("✅ Org units loaded:", orgUnits.length);
+
+        selectEl.innerHTML =
+          '<option value="">Select a unit...</option>' +
+          orgUnits.map((u) => `<option value="${u.id}">${u.name}</option>`).join("");
+      } catch (err) {
+        console.error("❌ loadOrganizationUnits() error:", err);
+        selectEl.innerHTML = '<option value="">Error loading units</option>';
+      }
+    }
+
+    async function handleLogin(evt) {
+      evt.preventDefault();
+      console.log("→ handleLogin() triggered");
+
+      const msg = document.getElementById("login-message");
+      msg.textContent = "";
+      msg.classList.remove("text-red-600");
+
+      const name = document.getElementById("userName").value.trim();
+      const unitId = document.getElementById("unitSelect").value;
+      const roleVal = document.getElementById("roleSelect").value;
+
+      if (!name) {
+        msg.textContent = "Please enter your name.";
+        msg.classList.add("text-red-600");
+        console.warn("⚠️ Name is empty");
+        return;
+      }
+      if (!unitId) {
+        msg.textContent = "Please select your organization unit.";
+        msg.classList.add("text-red-600");
+        console.warn("⚠️ No unit selected");
+        return;
+      }
+      if (!roleVal) {
+        msg.textContent = "Please select your role.";
+        msg.classList.add("text-red-600");
+        console.warn("⚠️ No role selected");
+        return;
+      }
+
+      const isManager = roleVal === "true"; // 'true' | 'false' -> boolean
+
+      try {
+        console.log("→ Querying person:", name);
+        const { data: person, error: personErr } = await sb
+          .from("people")
+          .select("id, name")
+          .eq("name", name)
+          .limit(1)
+          .single();
+
+        console.log("🔍 Person response:", { person, personErr });
+
+        if (personErr && personErr.code !== "PGRST116") throw personErr;
+        if (!person) {
+          msg.textContent = "No user found with that name. Please register first.";
+          msg.classList.add("text-red-600");
+          console.warn("⚠️ No user found:", name);
+          return;
+        }
+
+        console.log("✅ Person found:", person);
+
+        console.log("→ Querying person_roles with filters", {
+          person_id: person.id,
+          org_unit_id: unitId,
+          iteration_id: activeIteration.id,
+          is_manager: isManager
         });
-    </script>
+
+        const { data: role, error: roleErr } = await sb
+          .from("person_roles")
+          .select("id, org_unit_id, iteration_id, is_manager")
+          .eq("person_id", person.id)
+          .eq("org_unit_id", unitId)
+          .eq("iteration_id", activeIteration.id)
+          .eq("is_manager", isManager)
+          .maybeSingle();
+
+        console.log("🔍 Role response:", { role, roleErr });
+
+        if (roleErr) throw roleErr;
+        if (!role) {
+          msg.textContent =
+            "No matching role found for this user in the specified unit for the active iteration.";
+          msg.classList.add("text-red-600");
+          console.warn("⚠️ Role not found for user:", name);
+          return;
+        }
+
+        console.log("✅ Role found:", role);
+
+        // Store session and redirect (same as old app)
+        sessionStorage.setItem("loggedInUser", name);
+        const params = new URLSearchParams({
+          personRoleId: role.id,
+          iterationId: activeIteration.id,
+          userUnitId: role.org_unit_id,
+        }).toString();
+
+        console.log("→ Redirecting to cognitive-tool.html?" + params);
+        window.location.href = `/cognitive-tool.html?${params}`;
+      } catch (err) {
+        console.error("💥 handleLogin() exception:", err);
+        msg.textContent = "Login failed: " + err.message;
+        msg.classList.add("text-red-600");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      console.log("→ DOMContentLoaded fired");
+      const iterationId = await loadActiveIteration();
+      if (iterationId) await loadOrganizationUnits(iterationId);
+      document.getElementById("login-form").addEventListener("submit", handleLogin);
+      console.log("🟢 login.html: init complete");
+    });
+  </script>
 </body>
 </html>
-
 

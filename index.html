@@ -1,76 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Cognitive Space Analyzer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cognitive Space Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="icon" href="favicon.ico" />
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="w-full max-w-lg bg-white p-10 rounded-lg shadow-lg text-center">
-        <h1 class="text-4xl font-bold mb-4">Cognitive Space Analyzer</h1>
-        <p class="text-gray-600 mb-8 leading-relaxed">
-            Welcome! This application is a powerful tool designed to help individuals and teams visualize and understand their cognitive landscape. By answering a series of survey questions, you can generate a unique 3D model and a set of analytical charts that represent your knowledge, familiarity, and cognitive load on various topics. This visualization provides valuable insights, helping to identify areas of strength, potential challenges, and opportunities for growth, fostering better communication and strategic development within your organization.
-        </p>
-        
-        <form id="login-form" class="mb-4">
-            <div class="flex items-center border-b border-blue-500 py-2">
-                <input id="name-input" class="appearance-none bg-transparent border-none w-full text-gray-700 mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Enter Your Full Name to Login" aria-label="Full name">
-                <button class="flex-shrink-0 bg-blue-500 hover:bg-blue-700 border-blue-500 hover:border-blue-700 text-sm border-4 text-white py-1 px-2 rounded" type="submit">
-                    Login
-                </button>
-            </div>
-        </form>
 
-        <a href="/register.html" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline inline-block">
-            Register
-        </a>
+<body class="bg-gray-100 text-gray-900 flex items-center justify-center min-h-screen">
+  <div class="bg-white shadow-xl rounded-2xl p-8 max-w-2xl w-full border border-gray-200">
+    <h1 class="text-3xl font-bold mb-4 text-blue-800 text-center">
+      Cognitive Space Analyzer
+    </h1>
 
-        <p id="error-message" class="text-red-500 text-xs italic mt-4"></p>
+    <p class="text-gray-700 text-justify mb-8">
+      <strong>Welcome!</strong> This application is a powerful tool designed to help individuals and teams visualize
+      and understand their cognitive landscape. By answering a series of survey questions, you can generate a unique 3D
+      model and a set of analytical charts that represent your knowledge, familiarity, and cognitive load on various
+      topics. This visualization provides valuable insights, helping to identify areas of strength, potential
+      challenges, and opportunities for growth, fostering better communication and strategic development within your
+      organization.
+    </p>
+
+    <div class="text-center mb-6">
+      <p class="text-gray-600">Enter your full name to login</p>
     </div>
 
-    <script>
-        document.getElementById('login-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const nameInput = document.getElementById('name-input');
-            const errorMessage = document.getElementById('error-message');
-            const name = nameInput.value.trim();
-            errorMessage.textContent = '';
+    <div class="flex flex-col space-y-4 max-w-sm mx-auto">
+      <input
+        id="nameInput"
+        type="text"
+        placeholder="Your name"
+        class="w-full border border-gray-300 rounded-lg p-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-300"
+      />
 
-            if (!name) {
-                errorMessage.textContent = 'Please enter a name.';
-                return;
-            }
+      <button
+        id="loginBtn"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"
+      >
+        Login
+      </button>
 
-            // Handle Admin login
-            if (name.toLowerCase() === 'admin') {
-                window.location.href = '/admin.html';
-                return;
-            }
+      <button
+        id="registerBtn"
+        class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
+      >
+        Register
+      </button>
 
-            // Handle regular user login
-            try {
-                const response = await fetch('/api/check-person', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
+      <p id="msg" class="text-sm text-center mt-2 text-red-500"></p>
+    </div>
 
-                const data = await response.json();
+    <footer class="text-gray-400 text-xs mt-8 text-center">
+      &copy; 2025 Club33 Cognitive System
+    </footer>
+  </div>
 
-                if (!response.ok) {
-                    throw new Error(data.message);
-                }
+  <script>
+    // Supabase connection (replaces Node.js API)
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
 
-                // If person exists, redirect to the user portal
-                sessionStorage.setItem('loggedInUser', name); // Store name for the next page
-                window.location.href = '/portal.html';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const nameInput = document.getElementById("nameInput");
+    const loginBtn = document.getElementById("loginBtn");
+    const registerBtn = document.getElementById("registerBtn");
+    const msg = document.getElementById("msg");
 
-            } catch (error) {
-                errorMessage.textContent = error.message;
-            }
-        });
-    </script>
+    loginBtn.addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      msg.textContent = "";
+
+      if (!name) {
+        msg.textContent = "Please enter your name.";
+        return;
+      }
+
+      if (name.toLowerCase() === "admin") {
+        sessionStorage.setItem("loggedInUser", name);
+        window.location.href = "admin.html";
+        return;
+      }
+
+      msg.textContent = "Checking user...";
+
+      try {
+        const { data, error } = await sb
+          .from("people")
+          .select("id")
+          .eq("name", name)
+          .maybeSingle();
+
+        if (error) {
+          console.error(error);
+          msg.textContent = "Database error. Please try again later.";
+          return;
+        }
+
+        if (!data) {
+          msg.textContent = "You are not registered. Please register first.";
+          return;
+        }
+
+        sessionStorage.setItem("loggedInUser", name);
+        msg.textContent = "Welcome " + name + "! Redirecting...";
+        setTimeout(() => (window.location.href = "portal.html"), 800);
+      } catch (err) {
+        console.error(err);
+        msg.textContent = "Connection error.";
+      }
+    });
+
+    registerBtn.addEventListener("click", () => {
+      window.location.href = "register.html";
+    });
+  </script>
 </body>
 </html>
-
 

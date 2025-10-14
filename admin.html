@@ -1,50 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Application Administration</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="text-center bg-white p-12 rounded-lg shadow-lg">
-        <h1 class="text-4xl font-bold mb-2">Administration Portal</h1>
-        <p id="iteration-display" class="text-blue-600 font-semibold mb-8">Loading active iteration...</p>
-        <p class="text-gray-600 mb-8">Welcome, Admin. Please select a tool.</p>
-        <div class="space-y-4">
-            <a href="/iteration-manager.html" class="block w-full bg-blue-500 text-white font-bold py-4 px-8 rounded-lg hover:bg-blue-600 transition-colors duration-200">
-                Launch Iteration Manager
-            </a>
-            <a href="/org-chart.html" class="block w-full bg-red-500 text-white font-bold py-4 px-8 rounded-lg hover:bg-red-600 transition-colors duration-200">
-                Launch Organization Manager
-            </a>
-            <a href="/table-viewer.html" class="block w-full bg-gray-500 text-white font-bold py-4 px-8 rounded-lg hover:bg-gray-600 transition-colors duration-200">
-                Launch Table Viewer
-            </a>
-        </div>
-         <a href="/index.html" class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800 mt-6">
-            Logout
-        </a>
+  <div class="text-center bg-white p-10 rounded-lg shadow-lg">
+    <h1 class="text-3xl font-bold mb-4 text-gray-800">Administrator Dashboard</h1>
+    <p id="iteration-display" class="text-blue-600 font-semibold mb-8">
+      Loading active iteration...
+    </p>
+
+    <div class="space-y-4">
+      <a href="/iteration-manager.html"
+         class="block w-full bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-200">
+         Manage Iterations
+      </a>
+
+      <a href="/org-chart.html"
+         class="block w-full bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600 transition duration-200">
+         Manage Organization Structure
+      </a>
+
+      <a href="/table-viewer.html"
+         class="block w-full bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 transition duration-200">
+         View All Database Tables
+      </a>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const iterationDisplay = document.getElementById('iteration-display');
-            try {
-                const response = await fetch('/api/active-iteration');
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message);
-                }
-                const activeIteration = await response.json();
-                iterationDisplay.textContent = `Current Active Iteration: ${activeIteration.name} (ID: ${activeIteration.id})`;
-            } catch (error) {
-                iterationDisplay.textContent = `Error: ${error.message}`;
-                iterationDisplay.classList.remove('text-blue-600');
-                iterationDisplay.classList.add('text-red-600');
-            }
-        });
-    </script>
+    <a href="/index.html"
+       class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800 mt-6">
+       Logout
+    </a>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      console.log("🟢 admin.html: init start");
+      const iterationDisplay = document.getElementById("iteration-display");
+
+      try {
+        console.log("→ querying Supabase for active iteration...");
+        const { data, error } = await supabase
+          .from("iterations")
+          .select("*")
+          .is("end_date", null)
+          .single();
+
+        if (error || !data) throw error || new Error("No active iteration found");
+
+        iterationDisplay.textContent = `Active Iteration: ${data.name} (ID: ${data.id})`;
+        console.log("✅ Active iteration:", data);
+      } catch (err) {
+        console.error("❌ Failed to load iteration:", err.message);
+        iterationDisplay.textContent = "Error loading active iteration.";
+        iterationDisplay.classList.remove("text-blue-600");
+        iterationDisplay.classList.add("text-red-600");
+      }
+
+      console.log("🟢 admin.html: init complete");
+    });
+  </script>
 </body>
 </html>
-
 

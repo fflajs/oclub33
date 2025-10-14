@@ -1,230 +1,347 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iteration Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <title>Iteration Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { background:#f3f4f6; }
+    .card { background:#fff; border-radius:12px; box-shadow: 0 10px 15px rgba(0,0,0,.05); border:1px solid #e5e7eb; }
+    .badge { padding:.15rem .5rem; border-radius:999px; font-size:.75rem; font-weight:600; }
+    .badge-active { background:#d1fae5; color:#065f46; }
+    .badge-closed { background:#e5e7eb; color:#374151; }
+    .btn { border-radius:.5rem; padding:.5rem .9rem; font-weight:600; }
+    .btn-blue { background:#3b82f6; color:#fff; }
+    .btn-blue:hover { background:#2563eb; }
+    .btn-red { background:#ef4444; color:#fff; }
+    .btn-red:hover { background:#dc2626; }
+    .btn-green { background:#10b981; color:#fff; }
+    .btn-green:hover { background:#059669; }
+    .btn-gray { background:#6b7280; color:#fff; }
+    .btn-gray:hover { background:#4b5563; }
+    .table { width:100%; border-collapse:separate; border-spacing:0; }
+    .table th { text-align:left; font-weight:700; color:#374151; background:#f9fafb; border-bottom:1px solid #e5e7eb; padding:.75rem; }
+    .table td { padding:.75rem; border-bottom:1px solid #e5e7eb; color:#111827; }
+  </style>
 </head>
-<body class="bg-gray-100 p-8">
-    <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold">Iteration Manager</h1>
-            <a href="/admin.html" class="text-blue-500 hover:underline">&larr; Back to Admin Portal</a>
-        </div>
-        
-        <p class="text-gray-600 mb-6">
-            Here you can manage application iterations. Closing the active iteration archives its org chart. You can then start the "Next" iteration, which copies the structure from the last closed one, or create a completely new, blank iteration.
-        </p>
+<body class="min-h-screen flex flex-col items-center py-6">
 
-        <div id="create-section" class="mb-8 p-4 bg-gray-50 rounded-lg border hidden">
-            <h2 id="create-title" class="text-xl font-semibold mb-4"></h2>
-            <div class="space-y-4">
-                <div>
-                    <label for="new-iteration-name" class="block text-sm font-medium text-gray-700">New Iteration Name</label>
-                    <input type="text" id="new-iteration-name" class="mt-1 block w-full p-2 border rounded-md" placeholder="Enter name for the new iteration...">
-                </div>
-                <div>
-                    <label for="question-set-select" class="block text-sm font-medium text-gray-700">Question Set</label>
-                    <select id="question-set-select" class="mt-1 block w-full p-2 border rounded-md bg-white">
-                        <option value="Deep_Analysis_120.json" selected>Deep Analysis (120 questions)</option>
-                        <option value="Normal_Analysis_60.json">Normal Analysis (60 questions)</option>
-                        <option value="Pulse_Check_12.json">Pulse Check (12 questions)</option>
-                    </select>
-                </div>
-                <div>
-                    <button id="create-iteration-button" class="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600">Create</button>
-                </div>
-            </div>
-             <p id="create-note" class="text-xs text-gray-500 mt-2"></p>
-        </div>
-
-        <div>
-            <h2 class="text-xl font-semibold mb-4">Existing Iterations</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full bg-white">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Question Set</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="iterations-table-body" class="divide-y divide-gray-200">
-                        </tbody>
-                </table>
-            </div>
-        </div>
+  <div class="card w-full max-w-5xl p-8">
+    <div class="flex items-center justify-between">
+      <h1 class="text-3xl font-bold text-gray-900">Iteration Manager</h1>
+      <a href="/admin.html" class="text-blue-600 hover:underline text-sm">← Back to Admin Portal</a>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const tableBody = document.getElementById('iterations-table-body');
-            const createSection = document.getElementById('create-section');
-            const createTitle = document.getElementById('create-title');
-            const createNote = document.getElementById('create-note');
-            const newIterationNameInput = document.getElementById('new-iteration-name');
-            const questionSetSelect = document.getElementById('question-set-select');
-            const createIterationButton = document.getElementById('create-iteration-button');
-            const baseUrl = window.location.origin;
-            let lastClosedIteration = null;
+    <p class="text-gray-600 mt-4">
+      Here you can manage application iterations. Closing the active iteration archives its org chart.
+      You can then start the <b>Next</b> iteration, which copies the structure from the last closed one,
+      or create a completely new, blank iteration.
+    </p>
 
-            async function apiRequest(endpoint, method = 'GET', body = null) {
-                try {
-                    const options = { method, headers: { 'Content-Type': 'application/json' } };
-                    if (body) options.body = JSON.stringify(body);
-                    const response = await fetch(`${baseUrl}${endpoint}`, options);
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                    }
-                    return response.status === 204 ? null : await response.json();
-                } catch (error) {
-                    alert(`An API error occurred: ${error.message}`);
-                    throw error;
-                }
+    <!-- Blue info bar like the original -->
+    <div id="active-info" class="mt-4 text-center text-blue-700 font-medium border border-blue-200 rounded-lg py-2 bg-blue-50">
+      Loading active iteration...
+    </div>
+
+    <!-- Actions row -->
+    <div class="mt-6 flex flex-wrap items-center gap-3">
+      <input id="next-name" type="text" placeholder="New iteration name…" class="border border-gray-300 rounded px-3 py-2 w-64">
+      <select id="next-qs" class="border border-gray-300 rounded px-3 py-2">
+        <option value="Deep_Analysis_120.json">Deep Analysis 120</option>
+        <option value="Normal_Analysis_60.json">Normal Analysis 60</option>
+        <option value="Pulse_Check_12.json">Pulse Check 12</option>
+      </select>
+      <button id="create-next" class="btn btn-green">Create Next Iteration (Clone)</button>
+      <button id="create-blank" class="btn btn-blue">Create Blank Iteration</button>
+    </div>
+
+    <!-- Iterations table -->
+    <div class="mt-8 overflow-x-auto">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:60px;">ID</th>
+            <th>Name</th>
+            <th style="width:180px;">Start Date</th>
+            <th style="width:160px;">End Date</th>
+            <th style="width:180px;">Question Set</th>
+            <th style="width:90px;">Status</th>
+            <th style="width:160px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="iterations-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // --- Supabase setup ---
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // --- Helpers ---
+    const log = (...a) => console.log("[iteration-manager]", ...a);
+    const fmt = (iso) => {
+      if (!iso) return "N/A";
+      const d = new Date(iso);
+      if (isNaN(d)) return "N/A";
+      return d.toLocaleDateString() + ", " + d.toLocaleTimeString();
+    };
+
+    // --- DOM refs ---
+    const activeInfo = document.getElementById("active-info");
+    const tbody = document.getElementById("iterations-body");
+    const btnCreateNext = document.getElementById("create-next");
+    const btnCreateBlank = document.getElementById("create-blank");
+    const inputNextName = document.getElementById("next-name");
+    const selectNextQs = document.getElementById("next-qs");
+
+    // --- State ---
+    let iterations = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      log("init start");
+      await refresh();
+      log("init done");
+    });
+
+    async function refresh() {
+      await loadIterations();
+      renderIterations();
+      updateActiveInfo();
+    }
+
+    async function loadIterations() {
+      const { data, error } = await supabase
+        .from("iterations")
+        .select("id, name, start_date, end_date, question_set")
+        .order("id", { ascending: true });
+
+      if (error) {
+        log("loadIterations error:", error.message);
+        return;
+      }
+      iterations = data || [];
+      log("loaded iterations:", iterations);
+    }
+
+    function updateActiveInfo() {
+      const active = iterations.find(it => it.end_date === null);
+      if (active) {
+        activeInfo.textContent = `Active Iteration: ${active.name} (ID: ${active.id})`;
+      } else {
+        activeInfo.textContent = `No active iteration. You can create the next one or a blank iteration.`;
+      }
+    }
+
+    function renderIterations() {
+      tbody.innerHTML = "";
+      iterations.forEach(it => {
+        const tr = document.createElement("tr");
+        const isActive = it.end_date === null;
+        tr.innerHTML = `
+          <td>${it.id}</td>
+          <td>${it.name || ""}</td>
+          <td>${fmt(it.start_date)}</td>
+          <td>${it.end_date ? fmt(it.end_date) : "N/A"}</td>
+          <td>${(it.question_set || "").replace(".json","").replace(/_/g," ")}</td>
+          <td>
+            <span class="badge ${isActive ? "badge-active" : "badge-closed"}">
+              ${isActive ? "Active" : "Closed"}
+            </span>
+          </td>
+          <td>
+            ${isActive
+              ? `<button class="btn btn-gray btn-close" data-id="${it.id}">Close</button>`
+              : `<button class="btn btn-red btn-delete" data-id="${it.id}">Delete</button>`
             }
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
 
-            function getNextIterationName(iterations) {
-                // Handle the case where the database is completely empty
-                if (iterations.length === 0) {
-                    lastClosedIteration = null;
-                    return 'Iteration 1';
-                }
-
-                const closedIterations = iterations.filter(i => i.end_date);
-                
-                // Handle case where there are active iterations but none are closed yet
-                if (closedIterations.length === 0) {
-                    lastClosedIteration = null;
-                    return 'Iteration 2';
-                }
-                
-                const lastClosed = closedIterations.sort((a,b) => new Date(b.end_date) - new Date(a.end_date))[0];
-                lastClosedIteration = lastClosed;
-
-                const match = lastClosed.name.match(/\d+$/);
-                if (match) {
-                    const num = parseInt(match[0], 10) + 1;
-                    return lastClosed.name.replace(/\d+$/, num);
-                }
-                return `Next ${lastClosed.name}`;
-            }
-
-            async function loadIterations() {
-                try {
-                    const iterations = await apiRequest('/api/iterations');
-                    tableBody.innerHTML = '';
-                    const activeIteration = iterations.find(i => !i.end_date);
-
-                    if (iterations.length > 0) {
-                        iterations.forEach(iter => {
-                            const tr = document.createElement('tr');
-                            const endDate = iter.end_date ? new Date(iter.end_date).toLocaleString() : 'N/A';
-                            const isActive = !iter.end_date;
-                            const questionSetName = iter.question_set.replace('.json', '').replace(/_/g, ' ');
-
-                            tr.innerHTML = `
-                                <td class="px-6 py-4 whitespace-nowrap">${iter.id}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${iter.name}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${new Date(iter.start_date).toLocaleString()}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">${endDate}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${questionSetName}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                        ${isActive ? 'Active' : 'Closed'}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    ${isActive ? `<a href="#" data-id="${iter.id}" class="close-iteration-btn text-indigo-600 hover:text-indigo-900">Close</a>` : ''}
-                                    <a href="#" data-id="${iter.id}" class="delete-iteration-btn text-red-600 hover:text-red-900 ml-4">Delete</a>
-                                </td>
-                            `;
-                            tableBody.appendChild(tr);
-                        });
-                    } else {
-                        tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-4">No iterations found.</td></tr>';
-                    }
-
-                    if (!activeIteration) {
-                        const suggestedName = getNextIterationName(iterations);
-                        newIterationNameInput.value = suggestedName;
-                        if (lastClosedIteration) {
-                             createTitle.textContent = 'Create Next Iteration';
-                             createNote.textContent = `This will copy the org chart and roles from the last closed iteration: "${lastClosedIteration.name}".`;
-                        } else {
-                             createTitle.textContent = 'Create New (Blank) Iteration';
-                             createNote.textContent = `This will create the first, empty iteration.`;
-                        }
-                        createSection.classList.remove('hidden');
-                    } else {
-                        createSection.classList.add('hidden');
-                    }
-
-                } catch (error) {
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-red-500">Could not load iterations.</td></tr>';
-                }
-            }
-
-            createIterationButton.addEventListener('click', async () => {
-                const name = newIterationNameInput.value.trim();
-                const question_set = questionSetSelect.value;
-                if (!name) {
-                    alert('Please enter a name for the iteration.');
-                    return;
-                }
-                try {
-                    const body = { name, question_set };
-                    if (lastClosedIteration) {
-                        // Use the "next" endpoint to copy
-                        await apiRequest('/api/iterations/next', 'POST', body);
-                    } else {
-                        // Use the "create blank" endpoint
-                        await apiRequest('/api/iterations', 'POST', body);
-                    }
-                    newIterationNameInput.value = '';
-                    await loadIterations();
-                } catch (error) {
-                    console.error("Failed to create iteration", error);
-                }
-            });
-
-            tableBody.addEventListener('click', async (e) => {
-                e.preventDefault();
-                if (e.target.classList.contains('close-iteration-btn')) {
-                    const id = e.target.dataset.id;
-                    if (confirm(`Are you sure you want to close iteration ${id}? This action cannot be undone and will archive the current organizational chart.`)) {
-                        try {
-                            await apiRequest(`/api/iterations/${id}/close`, 'PUT');
-                            await loadIterations();
-                        } catch (error) {
-                             console.error("Failed to close iteration", error);
-                        }
-                    }
-                }
-
-                if (e.target.classList.contains('delete-iteration-btn')) {
-                    const id = e.target.dataset.id;
-                    const iterName = e.target.closest('tr').children[1].textContent;
-                    const warningMessage = `EXTREME DANGER: Are you sure you want to delete iteration "${iterName}" (ID: ${id})?\n\nThis will permanently delete THIS iteration AND ALL iterations that came AFTER it, along with all of their associated organizational data (units, roles, surveys).\n\nThis action cannot be undone.`;
-
-                    if (confirm(warningMessage)) {
-                        try {
-                            await apiRequest(`/api/iterations/${id}`, 'DELETE');
-                            await loadIterations();
-                        } catch (error) {
-                            console.error("Failed to delete iteration(s)", error);
-                        }
-                    }
-                }
-            });
-
-            await loadIterations();
+      // wire actions
+      tbody.querySelectorAll(".btn-close").forEach(b => {
+        b.addEventListener("click", async (e) => {
+          const id = Number(e.currentTarget.dataset.id);
+          if (!confirm("Close the active iteration now?")) return;
+          await closeIteration(id);
+          await refresh();
         });
-    </script>
+      });
+
+      tbody.querySelectorAll(".btn-delete").forEach(b => {
+        b.addEventListener("click", async (e) => {
+          const id = Number(e.currentTarget.dataset.id);
+          if (!confirm("Delete this iteration? This cannot be undone.")) return;
+          await deleteIteration(id);
+          await refresh();
+        });
+      });
+    }
+
+    async function closeIteration(id) {
+      log("closing iteration", id);
+      const { error } = await supabase
+        .from("iterations")
+        .update({ end_date: new Date().toISOString() })
+        .eq("id", id);
+      if (error) alert("Failed to close iteration: " + error.message);
+      else log("closed iteration", id);
+    }
+
+    async function deleteIteration(id) {
+      log("delete iteration", id);
+      // Optional: you may want to cascade delete related org units/roles on DB via trigger/RLS.
+      const { error } = await supabase.from("iterations").delete().eq("id", id);
+      if (error) alert("Failed to delete iteration: " + error.message);
+      else log("deleted iteration", id);
+    }
+
+    // --- Create BLANK iteration (no clone) ---
+    btnCreateBlank.addEventListener("click", async () => {
+      const active = iterations.find(it => it.end_date === null);
+      if (active) {
+        alert("You must close the active iteration before creating a new one.");
+        return;
+      }
+      const name = (inputNextName.value || "").trim();
+      const qs = selectNextQs.value;
+      if (!name) { alert("Please enter a name for the new iteration."); return; }
+
+      const { data, error } = await supabase
+        .from("iterations")
+        .insert({ name, question_set: qs })
+        .select()
+        .single();
+
+      if (error) { alert("Failed to create iteration: " + error.message); return; }
+      log("blank iteration created:", data);
+      inputNextName.value = "";
+      await refresh();
+    });
+
+    // --- Create NEXT iteration (clone last closed) ---
+    btnCreateNext.addEventListener("click", async () => {
+      const active = iterations.find(it => it.end_date === null);
+      if (active) { alert("Close the active iteration first."); return; }
+
+      // find most recently closed
+      const closed = iterations.filter(it => it.end_date !== null)
+                               .sort((a,b) => new Date(b.end_date) - new Date(a.end_date));
+      if (closed.length === 0) {
+        alert("No previously closed iteration found to copy from.");
+        return;
+      }
+      const source = closed[0];
+
+      const name = (inputNextName.value || "").trim();
+      const qs = selectNextQs.value;
+      if (!name) { alert("Please enter a name for the next iteration."); return; }
+
+      try {
+        await createNextIterationClone({ sourceIterationId: source.id, newName: name, questionSet: qs });
+        inputNextName.value = "";
+        await refresh();
+      } catch (e) {
+        console.error(e);
+        alert("Failed to create next iteration: " + e.message);
+      }
+    });
+
+    /**
+     * Clone org structure & roles from sourceIterationId into a brand new iteration.
+     * Steps:
+     * 1) insert new iteration (name/question_set)
+     * 2) fetch all org units from source; clone them, preserving parent structure with an ID map
+     * 3) fetch all person_roles from source; re-map org_unit_id to cloned unit ids; insert with new iteration_id
+     */
+    async function createNextIterationClone({ sourceIterationId, newName, questionSet }) {
+      log("createNextIterationClone: start", { sourceIterationId, newName, questionSet });
+
+      // 1) create the iteration row
+      const { data: newIter, error: insErr } = await supabase
+        .from("iterations")
+        .insert({ name: newName, question_set: questionSet })
+        .select()
+        .single();
+
+      if (insErr || !newIter) throw new Error(insErr?.message || "Could not insert new iteration");
+      const newIterationId = newIter.id;
+      log("new iteration id:", newIterationId);
+
+      // 2) clone organization_units
+      const { data: oldUnits, error: unitsErr } = await supabase
+        .from("organization_units")
+        .select("*")
+        .eq("iteration_id", sourceIterationId);
+
+      if (unitsErr) throw new Error("Failed to load source units: " + unitsErr.message);
+
+      // Build children map for recursive cloning
+      const childrenByParent = new Map();
+      oldUnits.forEach(u => {
+        const key = u.parent_id ?? "ROOT";
+        if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+        childrenByParent.get(key).push(u);
+      });
+
+      // Map of oldUnitId -> newUnitId
+      const idMap = new Map();
+
+      async function cloneLevel(parentOldId, parentNewId) {
+        const list = childrenByParent.get(parentOldId ?? "ROOT") || [];
+        for (const u of list) {
+          // insert unit
+          const { data: ins, error } = await supabase
+            .from("organization_units")
+            .insert({ name: u.name, parent_id: parentNewId, iteration_id: newIterationId })
+            .select()
+            .single();
+          if (error) throw new Error("Insert unit failed: " + error.message);
+          idMap.set(u.id, ins.id);
+          // recurse
+          await cloneLevel(u.id, ins.id);
+        }
+      }
+      await cloneLevel(null, null);
+      log("cloned units:", { count: idMap.size });
+
+      // 3) clone person_roles
+      const { data: oldRoles, error: rolesErr } = await supabase
+        .from("person_roles")
+        .select("*")
+        .eq("iteration_id", sourceIterationId);
+
+      if (rolesErr) throw new Error("Failed to load source roles: " + rolesErr.message);
+
+      // Insert roles in batches to reduce roundtrips
+      const newRolesPayload = [];
+      oldRoles.forEach(r => {
+        const mappedUnitId = idMap.get(r.org_unit_id);
+        if (!mappedUnitId) return;
+        newRolesPayload.push({
+          person_id: r.person_id,
+          org_unit_id: mappedUnitId,
+          is_manager: r.is_manager,
+          description: r.description ?? null,
+          iteration_id: newIterationId
+        });
+      });
+
+      while (newRolesPayload.length) {
+        const chunk = newRolesPayload.splice(0, 100);
+        const { error } = await supabase.from("person_roles").insert(chunk);
+        if (error) throw new Error("Insert roles failed: " + error.message);
+      }
+      log("cloned roles done");
+
+      return newIterationId;
+    }
+  </script>
 </body>
 </html>
+

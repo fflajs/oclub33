@@ -1,142 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Table Viewer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .table-container {
-            max-height: 400px;
-            overflow: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            white-space: nowrap;
-        }
-        th {
-            background-color: #f2f2f2;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Table Viewer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-gray-100 p-8">
-    <div class="max-w-7xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold">Database Table Viewer</h1>
-            <a href="/admin.html" class="text-blue-500 hover:underline">&larr; Back to Admin Portal</a>
-        </div>
 
-        <div id="loading-message" class="text-center text-gray-500">
-            <p>Loading table data...</p>
-        </div>
-
-        <div id="tables-wrapper" class="space-y-8 hidden">
-            <!-- Tables will be inserted here by JavaScript -->
-        </div>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-6xl mx-auto py-10">
+    <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Database Table Viewer</h1>
+    <div id="tables-container" class="space-y-6"></div>
+    <div class="text-center mt-8">
+      <a href="/admin.html" class="text-blue-600 hover:text-blue-800 font-semibold">← Back to Admin Portal</a>
     </div>
+  </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const tablesWrapper = document.getElementById('tables-wrapper');
-            const loadingMessage = document.getElementById('loading-message');
+  <script>
+    console.log("🟢 table-viewer.html: script start");
 
-            const createTableSection = (title, data) => {
-                const section = document.createElement('div');
-                const heading = document.createElement('h2');
-                heading.className = 'text-2xl font-semibold mb-2';
-                heading.textContent = title;
-                section.appendChild(heading);
+    const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("✅ Supabase client initialized");
 
-                if (!data || data.length === 0) {
-                    const noDataMessage = document.createElement('p');
-                    noDataMessage.className = 'text-gray-500 italic';
-                    noDataMessage.textContent = 'No data in this table.';
-                    section.appendChild(noDataMessage);
-                    return section;
-                }
+    const tableList = [
+      { name: "iterations", label: "Iterations" },
+      { name: "organization_units", label: "Organization Units" },
+      { name: "people", label: "People" },
+      { name: "person_roles", label: "Person Roles" },
+      { name: "app_data", label: "App Data" },
+      { name: "surveys", label: "Surveys" }
+    ];
 
-                const tableContainer = document.createElement('div');
-                tableContainer.className = 'table-container border rounded-lg';
+    async function loadAllTables() {
+      const container = document.getElementById("tables-container");
+      container.innerHTML = "";
+      console.log("→ Loading all tables...");
 
-                const table = document.createElement('table');
-                const thead = document.createElement('thead');
-                const tbody = document.createElement('tbody');
-                
-                // Create headers from the keys of the first object
-                const headers = Object.keys(data[0]);
-                const headerRow = document.createElement('tr');
-                headers.forEach(headerText => {
-                    const th = document.createElement('th');
-                    th.textContent = headerText;
-                    headerRow.appendChild(th);
-                });
-                thead.appendChild(headerRow);
+      for (const tbl of tableList) {
+        console.log(`→ Querying table: ${tbl.name}`);
+        const { data, error } = await supabase.from(tbl.name).select("*");
+        if (error) {
+          console.error(`❌ Error loading ${tbl.name}:`, error);
+          container.innerHTML += `<div class="bg-red-100 border border-red-300 p-4 rounded"><h2 class="font-bold text-red-700">${tbl.label}</h2><p class="text-red-600">Error loading data: ${error.message}</p></div>`;
+          continue;
+        }
 
-                // Create data rows
-                data.forEach(rowData => {
-                    const row = document.createElement('tr');
-                    headers.forEach(header => {
-                        const td = document.createElement('td');
-                        let cellData = rowData[header];
-                        // Nicely format JSONB objects for display
-                        if (typeof cellData === 'object' && cellData !== null) {
-                            td.textContent = JSON.stringify(cellData);
-                        } else {
-                            td.textContent = cellData;
-                        }
-                        row.appendChild(td);
-                    });
-                    tbody.appendChild(row);
-                });
+        console.log(`✅ ${tbl.name}: ${data.length} rows`);
+        if (!data || data.length === 0) {
+          container.innerHTML += `<div class="bg-white p-6 rounded-lg shadow"><h2 class="text-xl font-bold mb-2 text-gray-800">${tbl.label}</h2><p class="text-gray-500">No records found.</p></div>`;
+          continue;
+        }
 
-                table.appendChild(thead);
-                table.appendChild(tbody);
-                tableContainer.appendChild(table);
-                section.appendChild(tableContainer);
-                return section;
-            };
+        const headers = Object.keys(data[0]);
+        const tableHTML = `
+          <div class="bg-white p-6 rounded-lg shadow">
+            <button onclick="toggleTable('${tbl.name}')" class="w-full text-left focus:outline-none">
+              <h2 class="text-xl font-bold mb-3 text-gray-800 flex justify-between items-center">
+                ${tbl.label}
+                <span id="arrow-${tbl.name}" class="transition-transform">▼</span>
+              </h2>
+            </button>
+            <div id="table-${tbl.name}">
+              <div class="overflow-x-auto border rounded">
+                <table class="min-w-full border-collapse">
+                  <thead class="bg-gray-200 text-gray-700">
+                    <tr>
+                      ${headers.map(h => `<th class="px-3 py-2 border text-left">${h}</th>`).join("")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data.map(row => `
+                      <tr class="border-t hover:bg-gray-50">
+                        ${headers.map(h => `<td class="px-3 py-2 border text-sm text-gray-700">${row[h] ?? ""}</td>`).join("")}
+                      </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+        container.innerHTML += tableHTML;
+      }
 
-            try {
-                const response = await fetch('/api/all-tables-data');
-                if (!response.ok) throw new Error('Failed to fetch table data.');
-                const allTables = await response.json();
+      console.log("✅ All tables loaded and rendered");
+    }
 
-                // Define the order and titles for the tables
-                const tableConfig = [
-                    { key: 'iterations', title: 'Iterations' },
-                    { key: 'organization_units', title: 'Organization Units' },
-                    { key: 'people', title: 'People' },
-                    { key: 'person_roles', title: 'Person Roles' },
-                    { key: 'surveys', title: 'Surveys' },
-                    { key: 'app_data', title: 'Application Data' }
-                ];
-                
-                tableConfig.forEach(config => {
-                    if (allTables[config.key]) {
-                        const section = createTableSection(config.title, allTables[config.key]);
-                        tablesWrapper.appendChild(section);
-                    }
-                });
+    function toggleTable(tableName) {
+      const div = document.getElementById(`table-${tableName}`);
+      const arrow = document.getElementById(`arrow-${tableName}`);
+      if (div.style.display === "none") {
+        div.style.display = "block";
+        arrow.textContent = "▼";
+      } else {
+        div.style.display = "none";
+        arrow.textContent = "▶";
+      }
+    }
 
-                loadingMessage.classList.add('hidden');
-                tablesWrapper.classList.remove('hidden');
-
-            } catch (error) {
-                loadingMessage.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
-                console.error('Error loading table data:', error);
-            }
-        });
-    </script>
+    document.addEventListener("DOMContentLoaded", loadAllTables);
+  </script>
 </body>
 </html>
-
 
