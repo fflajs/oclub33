@@ -2,7 +2,7 @@
 
 ## 📌 Overview
 **Club33** is a fully static cognitive and organizational visualization platform.  
-It uses **Supabase** as its backend (database + authentication + serverless functions)  
+It uses **Supabase** as its backend (database + authentication + serverless functions)**  
 and requires **no Node.js** or backend servers.
 
 This version (v3) marks the complete transition from a Node.js + Express app  
