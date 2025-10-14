@@ -1,0 +1,7 @@
+Cognos v3
+Static Supabase Edition
+Build date: 2025-10-14
+Status: Stable (Apache Deployment)
+Author: Flavio
+Repository: fflajs/oclub33
+
