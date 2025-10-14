@@ -218,6 +218,70 @@ HTML layout preserved	✅ OK
 Iteration cloning	✅ OK
 Version tracking	✅ OK (VERSION.txt)
 
+📧 Email Notifications (Gmail + msmtp Integration)
+Overview
+
+Your Club33 static-Supabase app can now send e-mail notifications directly from the server (e.g., for nightly backups or system alerts).
+Mail delivery is handled by msmtp, using your Gmail account with an App Password for secure authentication.
+
+1️⃣ Install and link msmtp
+sudo apt update
+sudo apt install -y msmtp msmtp-mta bsd-mailx
+sudo ln -sf /usr/bin/msmtp /usr/sbin/sendmail
+
+2️⃣ Create /etc/msmtprc (system-wide) or ~/.msmtprc (user-level)
+# ~/.msmtprc
+defaults
+auth           on
+tls            on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+logfile        /var/log/msmtp.log
+
+account gmail
+host smtp.gmail.com
+port 587
+from fla4all@gmail.com
+user fla4all@gmail.com
+password YOUR_16_CHARACTER_APP_PASSWORD
+tls_starttls on
+
+account default : gmail
+
+
+Permissions:
+
+chmod 600 ~/.msmtprc
+chown $USER:$USER ~/.msmtprc
+
+3️⃣ Generate a Gmail App Password
+
+Go to https://myaccount.google.com/apppasswords
+
+Choose Mail → Other (Custom name) → “msmtp”
+
+Copy the 16-character password (no spaces) and paste it into password.
+
+4️⃣ Test the setup
+echo "Club33 test mail from $(hostname)" | mail -s "Club33 notification test" fflajs@gmail.com
+sudo tail -n 10 /var/log/msmtp.log
+
+
+✅ Expect exitcode=EX_OK and an incoming message.
+
+5️⃣ Use in cron jobs
+0 3 * * * /home/fla/REP/oclub33/scripts/backup.sh \
+    && echo "Club33 backup OK $(date)" | mail -s "Club33 backup OK" fflajs@gmail.com \
+    || echo "Club33 backup FAILED $(date)" | mail -s "Club33 backup FAILED" fflajs@gmail.com
+
+6️⃣ Troubleshooting
+
+View msmtp logs:
+sudo tail -n 50 /var/log/msmtp.log
+
+Check Gmail “Sent” folder.
+
+If you see “Application-specific password required,” re-generate the App Password.
+
 Author: Flavio
 Project: Club33 Cognitive Web App
 Version: Cognos v3 (Static Supabase Edition)
