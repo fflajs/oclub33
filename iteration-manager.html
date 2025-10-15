@@ -30,7 +30,7 @@
   <div class="card w-full max-w-5xl p-8">
     <div class="flex items-center justify-between">
       <h1 class="text-3xl font-bold text-gray-900">Iteration Manager</h1>
-      <a href="/admin.html" class="text-blue-600 hover:underline text-sm">← Back to Admin Portal</a>
+      <a href="admin.html" class="text-blue-600 hover:underline text-sm">← Back to Admin Portal</a>
     </div>
 
     <p class="text-gray-600 mt-4">
@@ -39,12 +39,10 @@
       or create a completely new, blank iteration.
     </p>
 
-    <!-- Blue info bar like the original -->
     <div id="active-info" class="mt-4 text-center text-blue-700 font-medium border border-blue-200 rounded-lg py-2 bg-blue-50">
       Loading active iteration...
     </div>
 
-    <!-- Actions row -->
     <div class="mt-6 flex flex-wrap items-center gap-3">
       <input id="next-name" type="text" placeholder="New iteration name…" class="border border-gray-300 rounded px-3 py-2 w-64">
       <select id="next-qs" class="border border-gray-300 rounded px-3 py-2">
@@ -56,7 +54,6 @@
       <button id="create-blank" class="btn btn-blue">Create Blank Iteration</button>
     </div>
 
-    <!-- Iterations table -->
     <div class="mt-8 overflow-x-auto">
       <table class="table">
         <thead>
@@ -73,14 +70,31 @@
         <tbody id="iterations-body"></tbody>
       </table>
     </div>
+
+    <p id="syscheck" class="text-xs text-gray-500 mt-4 text-center"></p>
   </div>
 
   <script>
-    // --- Supabase setup ---
+    // --- Supabase + Gemini setup ---
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const syscheck = document.getElementById("syscheck");
+    async function checkConnections() {
+      try {
+        const { error } = await supabase.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
+    checkConnections();
 
     // --- Helpers ---
     const log = (...a) => console.log("[iteration-manager]", ...a);
@@ -91,7 +105,6 @@
       return d.toLocaleDateString() + ", " + d.toLocaleTimeString();
     };
 
-    // --- DOM refs ---
     const activeInfo = document.getElementById("active-info");
     const tbody = document.getElementById("iterations-body");
     const btnCreateNext = document.getElementById("create-next");
@@ -99,7 +112,6 @@
     const inputNextName = document.getElementById("next-name");
     const selectNextQs = document.getElementById("next-qs");
 
-    // --- State ---
     let iterations = [];
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -119,22 +131,16 @@
         .from("iterations")
         .select("id, name, start_date, end_date, question_set")
         .order("id", { ascending: true });
-
-      if (error) {
-        log("loadIterations error:", error.message);
-        return;
-      }
+      if (error) { log("loadIterations error:", error.message); return; }
       iterations = data || [];
-      log("loaded iterations:", iterations);
     }
 
     function updateActiveInfo() {
       const active = iterations.find(it => it.end_date === null);
-      if (active) {
+      if (active)
         activeInfo.textContent = `Active Iteration: ${active.name} (ID: ${active.id})`;
-      } else {
+      else
         activeInfo.textContent = `No active iteration. You can create the next one or a blank iteration.`;
-      }
     }
 
     function renderIterations() {
@@ -163,7 +169,6 @@
         tbody.appendChild(tr);
       });
 
-      // wire actions
       tbody.querySelectorAll(".btn-close").forEach(b => {
         b.addEventListener("click", async (e) => {
           const id = Number(e.currentTarget.dataset.id);
@@ -184,141 +189,86 @@
     }
 
     async function closeIteration(id) {
-      log("closing iteration", id);
       const { error } = await supabase
         .from("iterations")
         .update({ end_date: new Date().toISOString() })
         .eq("id", id);
       if (error) alert("Failed to close iteration: " + error.message);
-      else log("closed iteration", id);
     }
 
     async function deleteIteration(id) {
-      log("delete iteration", id);
-      // Optional: you may want to cascade delete related org units/roles on DB via trigger/RLS.
       const { error } = await supabase.from("iterations").delete().eq("id", id);
       if (error) alert("Failed to delete iteration: " + error.message);
-      else log("deleted iteration", id);
     }
 
-    // --- Create BLANK iteration (no clone) ---
     btnCreateBlank.addEventListener("click", async () => {
       const active = iterations.find(it => it.end_date === null);
-      if (active) {
-        alert("You must close the active iteration before creating a new one.");
-        return;
-      }
-      const name = (inputNextName.value || "").trim();
+      if (active) return alert("Close the active iteration first.");
+      const name = inputNextName.value.trim();
+      if (!name) return alert("Please enter a name.");
       const qs = selectNextQs.value;
-      if (!name) { alert("Please enter a name for the new iteration."); return; }
-
-      const { data, error } = await supabase
-        .from("iterations")
-        .insert({ name, question_set: qs })
-        .select()
-        .single();
-
-      if (error) { alert("Failed to create iteration: " + error.message); return; }
-      log("blank iteration created:", data);
+      const { error } = await supabase.from("iterations").insert({ name, question_set: qs });
+      if (error) alert("Error creating iteration: " + error.message);
       inputNextName.value = "";
       await refresh();
     });
 
-    // --- Create NEXT iteration (clone last closed) ---
     btnCreateNext.addEventListener("click", async () => {
       const active = iterations.find(it => it.end_date === null);
-      if (active) { alert("Close the active iteration first."); return; }
-
-      // find most recently closed
+      if (active) return alert("Close the active iteration first.");
       const closed = iterations.filter(it => it.end_date !== null)
                                .sort((a,b) => new Date(b.end_date) - new Date(a.end_date));
-      if (closed.length === 0) {
-        alert("No previously closed iteration found to copy from.");
-        return;
-      }
-      const source = closed[0];
-
-      const name = (inputNextName.value || "").trim();
+      if (!closed.length) return alert("No closed iteration to clone from.");
+      const name = inputNextName.value.trim();
+      if (!name) return alert("Enter name for new iteration.");
       const qs = selectNextQs.value;
-      if (!name) { alert("Please enter a name for the next iteration."); return; }
-
       try {
-        await createNextIterationClone({ sourceIterationId: source.id, newName: name, questionSet: qs });
+        await createNextIterationClone({ sourceIterationId: closed[0].id, newName: name, questionSet: qs });
         inputNextName.value = "";
         await refresh();
-      } catch (e) {
-        console.error(e);
-        alert("Failed to create next iteration: " + e.message);
-      }
+      } catch (e) { alert("Clone failed: " + e.message); }
     });
 
-    /**
-     * Clone org structure & roles from sourceIterationId into a brand new iteration.
-     * Steps:
-     * 1) insert new iteration (name/question_set)
-     * 2) fetch all org units from source; clone them, preserving parent structure with an ID map
-     * 3) fetch all person_roles from source; re-map org_unit_id to cloned unit ids; insert with new iteration_id
-     */
     async function createNextIterationClone({ sourceIterationId, newName, questionSet }) {
-      log("createNextIterationClone: start", { sourceIterationId, newName, questionSet });
-
-      // 1) create the iteration row
       const { data: newIter, error: insErr } = await supabase
         .from("iterations")
         .insert({ name: newName, question_set: questionSet })
-        .select()
-        .single();
-
+        .select().single();
       if (insErr || !newIter) throw new Error(insErr?.message || "Could not insert new iteration");
-      const newIterationId = newIter.id;
-      log("new iteration id:", newIterationId);
 
-      // 2) clone organization_units
       const { data: oldUnits, error: unitsErr } = await supabase
         .from("organization_units")
         .select("*")
         .eq("iteration_id", sourceIterationId);
+      if (unitsErr) throw new Error(unitsErr.message);
 
-      if (unitsErr) throw new Error("Failed to load source units: " + unitsErr.message);
-
-      // Build children map for recursive cloning
       const childrenByParent = new Map();
       oldUnits.forEach(u => {
         const key = u.parent_id ?? "ROOT";
         if (!childrenByParent.has(key)) childrenByParent.set(key, []);
         childrenByParent.get(key).push(u);
       });
-
-      // Map of oldUnitId -> newUnitId
       const idMap = new Map();
-
       async function cloneLevel(parentOldId, parentNewId) {
         const list = childrenByParent.get(parentOldId ?? "ROOT") || [];
         for (const u of list) {
-          // insert unit
           const { data: ins, error } = await supabase
             .from("organization_units")
-            .insert({ name: u.name, parent_id: parentNewId, iteration_id: newIterationId })
-            .select()
-            .single();
-          if (error) throw new Error("Insert unit failed: " + error.message);
+            .insert({ name: u.name, parent_id: parentNewId, iteration_id: newIter.id })
+            .select().single();
+          if (error) throw new Error(error.message);
           idMap.set(u.id, ins.id);
-          // recurse
           await cloneLevel(u.id, ins.id);
         }
       }
       await cloneLevel(null, null);
-      log("cloned units:", { count: idMap.size });
 
-      // 3) clone person_roles
       const { data: oldRoles, error: rolesErr } = await supabase
         .from("person_roles")
         .select("*")
         .eq("iteration_id", sourceIterationId);
+      if (rolesErr) throw new Error(rolesErr.message);
 
-      if (rolesErr) throw new Error("Failed to load source roles: " + rolesErr.message);
-
-      // Insert roles in batches to reduce roundtrips
       const newRolesPayload = [];
       oldRoles.forEach(r => {
         const mappedUnitId = idMap.get(r.org_unit_id);
@@ -328,18 +278,14 @@
           org_unit_id: mappedUnitId,
           is_manager: r.is_manager,
           description: r.description ?? null,
-          iteration_id: newIterationId
+          iteration_id: newIter.id
         });
       });
-
       while (newRolesPayload.length) {
         const chunk = newRolesPayload.splice(0, 100);
         const { error } = await supabase.from("person_roles").insert(chunk);
-        if (error) throw new Error("Insert roles failed: " + error.message);
+        if (error) throw new Error(error.message);
       }
-      log("cloned roles done");
-
-      return newIterationId;
     }
   </script>
 </body>

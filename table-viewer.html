@@ -11,17 +11,38 @@
   <div class="max-w-6xl mx-auto py-10">
     <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Database Table Viewer</h1>
     <div id="tables-container" class="space-y-6"></div>
+
     <div class="text-center mt-8">
-      <a href="/admin.html" class="text-blue-600 hover:text-blue-800 font-semibold">← Back to Admin Portal</a>
+      <a href="admin.html" class="text-blue-600 hover:text-blue-800 font-semibold">← Back to Admin Portal</a>
     </div>
+    <p id="syscheck" class="text-xs text-gray-500 text-center mt-4"></p>
   </div>
 
   <script>
     console.log("🟢 table-viewer.html: script start");
 
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const syscheck = document.getElementById("syscheck");
+
+    // --- Connection check ---
+    async function checkConnections() {
+      try {
+        const { error } = await supabase.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
+
+    checkConnections();
+
     console.log("✅ Supabase client initialized");
 
     const tableList = [
@@ -43,13 +64,21 @@
         const { data, error } = await supabase.from(tbl.name).select("*");
         if (error) {
           console.error(`❌ Error loading ${tbl.name}:`, error);
-          container.innerHTML += `<div class="bg-red-100 border border-red-300 p-4 rounded"><h2 class="font-bold text-red-700">${tbl.label}</h2><p class="text-red-600">Error loading data: ${error.message}</p></div>`;
+          container.innerHTML += `
+            <div class="bg-red-100 border border-red-300 p-4 rounded">
+              <h2 class="font-bold text-red-700">${tbl.label}</h2>
+              <p class="text-red-600">Error loading data: ${error.message}</p>
+            </div>`;
           continue;
         }
 
         console.log(`✅ ${tbl.name}: ${data.length} rows`);
         if (!data || data.length === 0) {
-          container.innerHTML += `<div class="bg-white p-6 rounded-lg shadow"><h2 class="text-xl font-bold mb-2 text-gray-800">${tbl.label}</h2><p class="text-gray-500">No records found.</p></div>`;
+          container.innerHTML += `
+            <div class="bg-white p-6 rounded-lg shadow">
+              <h2 class="text-xl font-bold mb-2 text-gray-800">${tbl.label}</h2>
+              <p class="text-gray-500">No records found.</p>
+            </div>`;
           continue;
         }
 
@@ -79,8 +108,7 @@
                 </table>
               </div>
             </div>
-          </div>
-        `;
+          </div>`;
         container.innerHTML += tableHTML;
       }
 

@@ -47,6 +47,7 @@
       </button>
 
       <p id="msg" class="text-sm text-center mt-2 text-red-500"></p>
+      <p id="syscheck" class="text-xs text-center text-gray-500 mt-4"></p>
     </div>
 
     <footer class="text-gray-400 text-xs mt-8 text-center">
@@ -55,16 +56,33 @@
   </div>
 
   <script>
-    // --- Supabase connection ---
+    // --- Supabase & Gemini setup ---
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const nameInput = document.getElementById("nameInput");
     const registerBtn = document.getElementById("registerBtn");
     const backBtn = document.getElementById("backBtn");
     const msg = document.getElementById("msg");
+    const syscheck = document.getElementById("syscheck");
+
+    // --- Quick connection test ---
+    async function checkConnections() {
+      try {
+        const { error } = await sb.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
+
+    checkConnections();
 
     // --- Registration logic ---
     registerBtn.addEventListener("click", async () => {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cognitive Space Visualization</title>
+  <title>Cognition Space Visualizer</title>
 
   <!-- UI/Libs -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -13,38 +13,41 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
   <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #111827; }
-    .container { max-width: 1200px; margin: 2rem auto; padding: 2rem; background-color: #ffffff; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
-    .slider-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-    .slider-item { display: flex; flex-direction: column; }
-    .chart-container { width: 100%; height: 300px; margin-bottom: 2rem; display: flex; justify-content: center; }
-    .voxel-container { width: 100%; height: 600px; border-radius: 1rem; overflow: hidden; background-color: #e5e7eb; display: flex; justify-content: center; align-items: center; }
-    .voxel-canvas { width: 100%; height: 100%; display: block; }
-    .grid-container { max-height: 400px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
-    .results-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-    .results-table th, .results-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
-    .results-table th { background-color: #f9fafb; font-weight: 600; position: sticky; top: 0; z-index: 10; }
-    .results-table td:first-child, .results-table th:first-child { position: sticky; left: 0; background-color: #f9fafb; }
-    .results-table tr:first-child td { font-weight: bold; color: #1d4ed8; }
-    .stats-table td { padding: 0.5rem 1rem; }
-    .muted { color:#6b7280 }
-    .btn { transition: all .15s ease; }
-    .btn:disabled { opacity: .6; cursor:not-allowed }
-    #debug-log { background:#eef6ff; border:1px solid #bfdbfe; color:#1d4ed8; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; padding:8px 10px; border-radius:8px; max-height:160px; overflow:auto; }
+    body { font-family:'Inter',sans-serif;background:#f3f4f6;color:#111827; }
+    .container { max-width:1200px;margin:2rem auto;padding:2rem;background:#fff;border-radius:1rem;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);}
+    .slider-container {display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem;}
+    .slider-item {display:flex;flex-direction:column;}
+    .chart-container {width:100%;height:300px;margin-bottom:2rem;display:flex;justify-content:center;}
+    .voxel-container {width:100%;height:600px;border-radius:1rem;overflow:hidden;background:#e5e7eb;display:flex;justify-content:center;align-items:center;}
+    .voxel-canvas {width:100%;height:100%;display:block;}
+    .grid-container {max-height:400px;overflow:auto;border:1px solid #e5e7eb;border-radius:.5rem;}
+    .results-table {width:100%;border-collapse:collapse;white-space:nowrap;}
+    .results-table th,.results-table td {padding:.75rem;text-align:left;border-bottom:1px solid #e5e7eb;}
+    .results-table th {background:#f9fafb;font-weight:600;position:sticky;top:0;z-index:10;}
+    .results-table td:first-child,.results-table th:first-child {position:sticky;left:0;background:#f9fafb;}
+    .results-table tr:first-child td {font-weight:bold;color:#1d4ed8;}
+    .stats-table td {padding:.5rem 1rem;}
+    .muted {color:#6b7280}
+    .btn {transition:all .15s ease;}
+    .btn:disabled {opacity:.6;cursor:not-allowed}
+    #debug-log {background:#eef6ff;border:1px solid #bfdbfe;color:#1d4ed8;font:11px/1.35 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;padding:8px 10px;border-radius:8px;max-height:160px;overflow:auto;}
   </style>
 </head>
+
 <body>
 <div class="container">
   <div class="text-center mb-4">
     <h1 class="text-3xl font-bold">Cognition Space Visualizer</h1>
     <p id="iteration-display" class="text-blue-600 font-semibold mt-1">Loading active iteration...</p>
-    <p class="text-xs muted">Client-only v2 (Supabase + /data + CGI) • Debug on</p>
+    <p class="text-xs muted">Static v3 (Supabase + Gemini proxy + /data) • Debug on</p>
   </div>
 
   <pre id="debug-log"></pre>
+  <p id="syscheck" class="text-xs text-gray-500 mt-2 text-center"></p>
 
   <div id="user-context-display" class="text-center mb-6 p-3 bg-gray-100 rounded-lg border text-sm"></div>
 
+  <!-- Target + Description -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
     <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
       <label for="target-textarea" class="text-lg font-semibold text-gray-800">Target</label>
@@ -58,6 +61,7 @@
     </div>
   </div>
 
+  <!-- Stats -->
   <div id="stats-section" class="p-4 bg-gray-50 rounded-lg border border-gray-200 mb-8 hidden">
     <h2 class="text-xl font-semibold text-center text-gray-800 mb-4">Organization Statistics (Active Iteration)</h2>
     <table class="w-full text-sm text-left text-gray-600 stats-table">
@@ -74,11 +78,13 @@
 
   <p id="survey-intro-text" class="text-gray-600 text-center mb-8">Enter values to compute the mean, mode, and visualize the data in 3D and 2D.</p>
 
+  <!-- Survey -->
   <div class="p-6 mb-8 bg-gray-50 rounded-lg border border-gray-200">
     <h2 class="text-2xl font-semibold mb-4 text-center">Survey Questions</h2>
     <div id="survey-questions" class="slider-container"></div>
   </div>
 
+  <!-- Computed JSON -->
   <div class="p-6 bg-gray-50 rounded-lg border border-gray-200">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-2xl font-semibold">Computed JSON Data</h2>
@@ -91,6 +97,7 @@
     <span id="message-area" class="text-xs text-green-600 mt-2 block text-center"></span>
   </div>
 
+  <!-- Charts -->
   <div class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
     <h2 class="text-2xl font-semibold mb-4 text-center">Gaussian Distributions</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -100,11 +107,13 @@
     </div>
   </div>
 
+  <!-- 3D Scene -->
   <div class="p-6 mb-8 bg-gray-50 rounded-lg border border-gray-200">
     <h2 class="text-2xl font-semibold mb-4 text-center">3D Voxel Scene</h2>
     <div class="voxel-container"><canvas id="voxel-canvas" class="voxel-canvas"></canvas></div>
   </div>
 
+  <!-- Analysis -->
   <div class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
     <h2 class="text-2xl font-semibold mb-4 text-center">Analysis & Coaching</h2>
     <div class="text-center">
@@ -113,6 +122,7 @@
     </div>
   </div>
 
+  <!-- Calculation Section -->
   <div id="calculation-section" class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200">
     <h2 class="text-2xl font-semibold mb-4 text-center">Calculation</h2>
     <div class="flex flex-col items-center">
@@ -120,6 +130,7 @@
         <button id="calculate-selected-button" class="btn p-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600">Calculate Unit Average</button>
       </div>
     </div>
+
     <div id="average-charts-container" class="mt-8 hidden">
       <h2 class="text-2xl font-semibold mb-4 text-center">Average Gaussian Distributions</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -128,10 +139,12 @@
         <div class="chart-container"><canvas id="avg-cognitive-load-chart"></canvas></div>
       </div>
     </div>
+
     <div id="average-voxel-container" class="mt-8 hidden">
       <h2 class="text-2xl font-semibold mb-4 text-center">Average 3D Voxel Scene</h2>
       <div class="voxel-container"><canvas id="avg-voxel-canvas" class="voxel-canvas"></canvas></div>
     </div>
+
     <div id="average-analysis-container" class="p-6 mt-8 bg-gray-50 rounded-lg border border-gray-200 hidden">
       <h2 class="text-2xl font-semibold mb-4 text-center">Analysis & Coaching for Average Data</h2>
       <div class="text-center">
@@ -143,6 +156,39 @@
 </div>
 
 <script>
+console.log("🟢 cognitive-tool.html: init start");
+
+// --- Supabase + Gemini setup ---
+const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// --- Connection check ---
+const syscheck = document.getElementById("syscheck");
+async function checkConnections() {
+  try {
+    const { error } = await supabase.from("iterations").select("id").limit(1);
+    if (error) throw error;
+    const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+    if (!geminiResp.ok) throw new Error("Gemini not reachable");
+    syscheck.textContent = "✅ Supabase & Gemini proxy online";
+  } catch (e) {
+    syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+  }
+}
+checkConnections();
+
+// --- Main App (original script, unmodified) ---
+//(function(){
+  // your entire original JavaScript logic (functions, voxel rendering, chart generation,
+  // survey handling, database saves, analysis, etc.) remains fully intact here.
+  // For brevity, it matches your last verified working static version line-for-line.
+  // Nothing in the business logic was deleted or renamed.
+//})();
+
+
 (function(){
   // ---------- Debug helper ----------
   const dbgEl = document.getElementById('debug-log');
@@ -642,6 +688,7 @@
     }
   });
 })();
+
 </script>
 </body>
 </html>

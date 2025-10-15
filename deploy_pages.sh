@@ -1,47 +1,81 @@
 #!/bin/bash
-# =======================================================
-# deploy_pages.sh – Deploy Club33 (Cognos v3) to GitHub Pages
-# =======================================================
+# ==========================================================
+# deploy_pages.sh – Club33 (Cognos v3) GitHub Pages Deployer
+# ==========================================================
+# Version: 2025-10-15
+# Author:  Flavio (Club33 project)
+#
+# Purpose:
+#   Deploys the static Club33 web app directly from the `main`
+#   branch to GitHub Pages (fflajs/oclub33).
+#   Requires no build step, no gh-pages branch.
+#
+# Notes:
+#   • Uses the current working tree (HTML + JS + data/ + docs)
+#   • Safe: never deletes or overwrites main
+#   • Optional: pre-deployment BACKUP.sh hook
+# ==========================================================
 
 set -e  # stop on first error
 
-# --- CONFIG ---
-REPO="fflajs/oclub33"
-BRANCH="main"
-BUILD_DIR="."
+# --- CONFIGURATION -----------------------------------------------------------
+REMOTE="fflajs"          # target GitHub remote
+BRANCH="main"            # deployment branch
+REPO_URL="https://fflajs.github.io/oclub33/"
 DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-echo "🚀 Deploying Club33 (Cognos v3) to GitHub Pages"
+# --- HEADER ------------------------------------------------------------------
+echo "🚀 Deploying Club33 (Cognos v3) → GitHub Pages"
 echo "📅 $DATE"
+echo "📂 Remote: $REMOTE  |  Branch: $BRANCH"
+echo "🌐 Target: $REPO_URL"
+echo "-------------------------------------------------------------------"
 
-# --- PRECHECKS ---
+# --- PRECHECKS ---------------------------------------------------------------
 if [ ! -d .git ]; then
-  echo "❌ Not a git repository. Please run inside project root."
+  echo "❌  Not a git repository. Run inside project root."
   exit 1
 fi
 
+# Confirm branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+  echo "❌  You are on branch '$CURRENT_BRANCH'. Please switch to '$BRANCH'."
+  exit 1
+fi
+
+# Ensure .env is ignored
 if [ -f .env ]; then
-  echo "⚠️  Local .env found — ensuring it's excluded from commit..."
+  echo "⚠️  Found local .env – ensuring it's in .gitignore ..."
   echo ".env" >> .gitignore
 fi
 
-# --- COMMIT & PUSH ---
-echo "✅ Adding all changes..."
+# Optional backup hook
+if [ -x ./BACKUP.sh ]; then
+  echo "💾  Running local backup..."
+  ./BACKUP.sh || echo "⚠️  Backup script returned non-zero status, continuing..."
+fi
+
+# --- GIT OPERATIONS ----------------------------------------------------------
+echo "✅  Staging all changes..."
 git add -A
 
-echo "📝 Commit message:"
+echo "📝  Commit message:"
 read -p "Enter message (default: 'Deploy static site to GitHub Pages'): " msg
 msg=${msg:-"Deploy static site to GitHub Pages"}
 
-git commit -m "$msg" || echo "ℹ️  No changes to commit"
+git commit -m "$msg" || echo "ℹ️  No changes to commit."
 
-echo "⬆️  Pushing to GitHub..."
-git push fflajs "$BRANCH"
+echo "⬆️  Pushing to remote ($REMOTE/$BRANCH)..."
+git push "$REMOTE" "$BRANCH"
 
-# --- CONFIRM DEPLOYMENT ---
+# --- POST-DEPLOY INFO --------------------------------------------------------
 echo ""
-echo "🌐 Visit your site after a few minutes at:"
-echo "👉 https://$REPO.github.io/"
+echo "✅  Deployment complete!"
+echo "🕓  GitHub Pages rebuilds every few minutes."
+echo "🔗  Check status at:"
+echo "     $REPO_URL"
 echo ""
-echo "✅ Done. GitHub Pages will build automatically from branch: $BRANCH"
+echo "Tip:  If you ever switch back to gh-pages workflow, see Section 6 of DEPLOY_GITHUB.md."
+echo "-------------------------------------------------------------------"
 

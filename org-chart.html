@@ -12,8 +12,6 @@
     .link-action { color: #9333ea; cursor: pointer; font-weight: 500; margin-left: 4px; }
     .link-action:hover { text-decoration: underline; }
     .debug { font-size: 0.75rem; color: #6b7280; white-space: pre-line; }
-
-    /* Modal styling */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); justify-content: center; align-items: center; z-index: 50; }
     .modal-content { background: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 22rem; text-align: left; }
     .modal.active { display: flex; }
@@ -24,7 +22,7 @@
   <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-4xl">
     <div class="flex justify-between items-center mb-2">
       <h1 class="text-2xl font-bold text-gray-800">Organization Chart Manager</h1>
-      <a href="/admin.html" class="text-blue-600 hover:underline text-sm">← Back to Admin Portal</a>
+      <a href="admin.html" class="text-blue-600 hover:underline text-sm">← Back to Admin Portal</a>
     </div>
     <div id="iteration-display" class="text-center text-blue-700 mb-6 font-medium border border-blue-200 rounded-lg py-2 bg-blue-50">
       Loading active iteration...
@@ -45,6 +43,7 @@
 
     <div id="org-tree" class="mt-4"></div>
     <div id="debug" class="debug mt-6 border-t border-gray-300 pt-4"></div>
+    <p id="syscheck" class="text-xs text-gray-500 mt-4 text-center"></p>
   </div>
 
   <!-- Assign Person Modal -->
@@ -72,7 +71,25 @@
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const syscheck = document.getElementById("syscheck");
+
+    async function checkConnections() {
+      try {
+        const { error } = await supabase.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
+
+    checkConnections();
+
     const dbg = (...a) => console.log("[org-chart]", ...a);
 
     document.addEventListener("DOMContentLoaded", async () => {
@@ -80,8 +97,8 @@
       const iterationDisplay = document.getElementById("iteration-display");
       const orgTree = document.getElementById("org-tree");
       const debugDiv = document.getElementById("debug");
-
       const log = (m) => (debugDiv.textContent += m + "\n");
+
       let activeIteration = null;
 
       // Modal refs
@@ -116,11 +133,13 @@
           supabase.from("person_roles").select("*").eq("iteration_id", activeIteration.id),
           supabase.from("people").select("*")
         ]);
+
         if (unitsRes.error || rolesRes.error || peopleRes.error) {
           dbg("❌ Data error", unitsRes.error, rolesRes.error, peopleRes.error);
           orgTree.innerHTML = "<p class='text-red-500 text-center'>Failed to load data.</p>";
           return;
         }
+
         const units = unitsRes.data, roles = rolesRes.data, people = peopleRes.data;
         dbg("✅ Loaded", { units: units.length, roles: roles.length, people: people.length });
 
@@ -160,7 +179,7 @@
           personEl.innerHTML = `
             <span>${isManager}${p.name}${mgrTag}</span>
             <div>
-              <a href="/cognitive-tool.html?personRoleId=${r.id}&iterationId=${r.iteration_id}&userUnitId=${unit.id}"
+              <a href="cognitive-tool.html?personRoleId=${r.id}&iterationId=${r.iteration_id}&userUnitId=${unit.id}"
                  class="bg-gray-200 text-gray-800 px-3 py-1 rounded hover:bg-gray-300 text-sm">Launch Tool</a>
               <button class="bg-red-500 text-white px-3 py-1 rounded text-sm remove-person">Remove</button>
             </div>

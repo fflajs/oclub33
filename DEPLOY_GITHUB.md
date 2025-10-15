@@ -233,3 +233,41 @@ Under Source, choose gh-pages
 Save → Your site will be served at
 https://fflajs.github.io/oclub33/
 
+🧰 How to Reconcile with DEPLOY_GITHUB.md
+
+To keep documentation consistent, we should:
+
+Mark the “gh-pages branch” path as legacy, used only for early test deployment.
+
+Add a new Section 7 describing the simplified Option A workflow (“Direct Deploy from Main”).
+
+Keep Section 6 for people who might want to re-use the selective gh-pages method.
+
+✏️ Suggested Addendum for DEPLOY_GITHUB.md
+
+You can append this at the end of the file:
+
+---
+
+### 7) Direct Deploy from Main (Simplified Production Flow)
+
+As of October 2025, Club33 (Cognos v3) uses a simplified GitHub Pages setup:
+
+**Branch:** `main`  
+**Folder:** `/ (root)`
+
+The site builds automatically from the `main` branch, removing the need for a
+separate `gh-pages` branch. The existing `deploy_pages.sh` script handles commits
+and pushes to the correct remote (`fflajs`).
+
+Steps:
+```bash
+cd ~/REP/oclub33
+./deploy_pages.sh
+
+
+This method keeps the repository fully intact and avoids branch switching.
+GitHub Pages picks up the latest commit from main within 1–2 minutes.
+
+If you ever need to return to the legacy gh-pages workflow (for partial deploys
+or historical compatibility), Section 6 remains valid.

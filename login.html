@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
-<body class="bg-gray-100 flex items-center justify-center h-screen">
+<body class="bg-gray-100 flex flex-col items-center justify-center h-screen">
   <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
     <h1 class="text-3xl font-bold text-center mb-4">Cognitive Visualizer</h1>
     <p id="iteration-info" class="text-center text-blue-600 mb-6">
@@ -62,23 +62,39 @@
     </form>
 
     <a
-      href="/index.html"
+      href="index.html"
       class="block text-center mt-6 text-blue-500 hover:text-blue-700 font-semibold"
     >
       Back to Home
     </a>
   </div>
 
+  <p id="syscheck" class="text-xs text-gray-500 text-center mt-4"></p>
+
   <script>
     console.log("🟢 login.html: script start");
 
+    // --- Supabase + Gemini setup ---
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
 
-    console.log("→ Creating Supabase client...");
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log("✅ Supabase client created:", !!sb);
+
+    const syscheck = document.getElementById("syscheck");
+    async function checkConnections() {
+      try {
+        const { error } = await sb.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
+    checkConnections();
 
     let activeIteration = null;
     let orgUnits = [];
@@ -86,8 +102,6 @@
     async function loadActiveIteration() {
       const info = document.getElementById("iteration-info");
       info.textContent = "Connecting to Supabase...";
-      console.log("→ loadActiveIteration() start");
-
       try {
         const { data, error } = await sb
           .from("iterations")
@@ -95,18 +109,13 @@
           .is("end_date", null)
           .limit(1)
           .single();
-
-        console.log("🔍 Supabase response for iterations:", { data, error });
-
         if (error) throw error;
         if (!data) throw new Error("No active iteration found.");
-
         activeIteration = data;
         info.textContent = `Active Iteration: ${data.name}`;
-        console.log("✅ Active iteration loaded:", data);
         return data.id;
       } catch (err) {
-        console.error("❌ loadActiveIteration() error:", err);
+        console.error("❌ loadActiveIteration error:", err);
         info.textContent = "Error loading active iteration.";
         info.classList.add("text-red-600");
         return null;
@@ -114,36 +123,27 @@
     }
 
     async function loadOrganizationUnits(iterationId) {
-      console.log("→ loadOrganizationUnits() start with iterationId:", iterationId);
       const selectEl = document.getElementById("unitSelect");
       selectEl.innerHTML = '<option value="">Loading...</option>';
-
       try {
         const { data, error } = await sb
           .from("organization_units")
           .select("id, name")
           .eq("iteration_id", iterationId)
           .order("name", { ascending: true });
-
-        console.log("🔍 Org units response:", { data, error });
-
         if (error) throw error;
         orgUnits = data || [];
-        console.log("✅ Org units loaded:", orgUnits.length);
-
         selectEl.innerHTML =
           '<option value="">Select a unit...</option>' +
           orgUnits.map((u) => `<option value="${u.id}">${u.name}</option>`).join("");
       } catch (err) {
-        console.error("❌ loadOrganizationUnits() error:", err);
+        console.error("❌ loadOrganizationUnits error:", err);
         selectEl.innerHTML = '<option value="">Error loading units</option>';
       }
     }
 
     async function handleLogin(evt) {
       evt.preventDefault();
-      console.log("→ handleLogin() triggered");
-
       const msg = document.getElementById("login-message");
       msg.textContent = "";
       msg.classList.remove("text-red-600");
@@ -152,54 +152,25 @@
       const unitId = document.getElementById("unitSelect").value;
       const roleVal = document.getElementById("roleSelect").value;
 
-      if (!name) {
-        msg.textContent = "Please enter your name.";
-        msg.classList.add("text-red-600");
-        console.warn("⚠️ Name is empty");
-        return;
-      }
-      if (!unitId) {
-        msg.textContent = "Please select your organization unit.";
-        msg.classList.add("text-red-600");
-        console.warn("⚠️ No unit selected");
-        return;
-      }
-      if (!roleVal) {
-        msg.textContent = "Please select your role.";
-        msg.classList.add("text-red-600");
-        console.warn("⚠️ No role selected");
-        return;
-      }
+      if (!name) return (msg.textContent = "Please enter your name.", msg.classList.add("text-red-600"));
+      if (!unitId) return (msg.textContent = "Please select your organization unit.", msg.classList.add("text-red-600"));
+      if (!roleVal) return (msg.textContent = "Please select your role.", msg.classList.add("text-red-600"));
 
-      const isManager = roleVal === "true"; // 'true' | 'false' -> boolean
+      const isManager = roleVal === "true";
 
       try {
-        console.log("→ Querying person:", name);
         const { data: person, error: personErr } = await sb
           .from("people")
           .select("id, name")
           .eq("name", name)
           .limit(1)
           .single();
-
-        console.log("🔍 Person response:", { person, personErr });
-
         if (personErr && personErr.code !== "PGRST116") throw personErr;
         if (!person) {
           msg.textContent = "No user found with that name. Please register first.";
           msg.classList.add("text-red-600");
-          console.warn("⚠️ No user found:", name);
           return;
         }
-
-        console.log("✅ Person found:", person);
-
-        console.log("→ Querying person_roles with filters", {
-          person_id: person.id,
-          org_unit_id: unitId,
-          iteration_id: activeIteration.id,
-          is_manager: isManager
-        });
 
         const { data: role, error: roleErr } = await sb
           .from("person_roles")
@@ -209,43 +180,30 @@
           .eq("iteration_id", activeIteration.id)
           .eq("is_manager", isManager)
           .maybeSingle();
-
-        console.log("🔍 Role response:", { role, roleErr });
-
         if (roleErr) throw roleErr;
         if (!role) {
-          msg.textContent =
-            "No matching role found for this user in the specified unit for the active iteration.";
+          msg.textContent = "No matching role found for this user in the specified unit for the active iteration.";
           msg.classList.add("text-red-600");
-          console.warn("⚠️ Role not found for user:", name);
           return;
         }
 
-        console.log("✅ Role found:", role);
-
-        // Store session and redirect (same as old app)
         sessionStorage.setItem("loggedInUser", name);
         const params = new URLSearchParams({
           personRoleId: role.id,
           iterationId: activeIteration.id,
           userUnitId: role.org_unit_id,
         }).toString();
-
-        console.log("→ Redirecting to cognitive-tool.html?" + params);
-        window.location.href = `/cognitive-tool.html?${params}`;
+        window.location.href = `cognitive-tool.html?${params}`;
       } catch (err) {
-        console.error("💥 handleLogin() exception:", err);
         msg.textContent = "Login failed: " + err.message;
         msg.classList.add("text-red-600");
       }
     }
 
     document.addEventListener("DOMContentLoaded", async () => {
-      console.log("→ DOMContentLoaded fired");
       const iterationId = await loadActiveIteration();
       if (iterationId) await loadOrganizationUnits(iterationId);
       document.getElementById("login-form").addEventListener("submit", handleLogin);
-      console.log("🟢 login.html: init complete");
     });
   </script>
 </body>

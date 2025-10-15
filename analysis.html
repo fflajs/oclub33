@@ -54,13 +54,37 @@
         Clear
       </button>
     </div>
+
+    <p id="syscheck" class="text-xs text-gray-500 text-center mt-6"></p>
   </div>
 
   <script>
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
+
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const syscheck = document.getElementById("syscheck");
+
+    // --- Quick connection test ---
+    async function checkConnections() {
+      try {
+        const { error } = await supabase.from("iterations").select("id").limit(1);
+        if (error) throw error;
+
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+        syscheck.classList.remove("text-gray-500", "text-red-600");
+        syscheck.classList.add("text-green-600");
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+        syscheck.classList.remove("text-gray-500", "text-green-600");
+        syscheck.classList.add("text-red-600");
+      }
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       console.log("🟢 analysis.html: init start");
@@ -71,6 +95,8 @@
       const clearBtn = document.getElementById("clear-btn");
       const aggregatedText = document.getElementById("aggregated-text");
       const summaryText = document.getElementById("summary-text");
+
+      checkConnections(); // Run connection check immediately
 
       // --- Load active iteration ---
       try {
@@ -114,7 +140,7 @@
         }
       });
 
-      // --- Analyze text using Gemini ---
+      // --- Analyze text using Gemini via Supabase Function ---
       analyzeBtn.addEventListener("click", async () => {
         const text = aggregatedText.value.trim();
         if (!text) {
@@ -122,10 +148,10 @@
           return;
         }
 
-        summaryText.value = "Analyzing with Gemini... please wait.";
+        summaryText.value = "Analyzing with Gemini (Supabase)... please wait.";
         try {
-          console.log("→ sending text to gemini-proxy.sh...");
-          const response = await fetch("/cgi-bin/gemini-proxy.sh", {
+          console.log("→ sending text to Supabase Gemini proxy...");
+          const response = await fetch(GEMINI_PROXY_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text }),

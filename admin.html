@@ -15,38 +15,57 @@
     </p>
 
     <div class="space-y-4">
-      <a href="/iteration-manager.html"
+      <a href="iteration-manager.html"
          class="block w-full bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition duration-200">
          Manage Iterations
       </a>
 
-      <a href="/org-chart.html"
+      <a href="org-chart.html"
          class="block w-full bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600 transition duration-200">
          Manage Organization Structure
       </a>
 
-      <a href="/table-viewer.html"
+      <a href="table-viewer.html"
          class="block w-full bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 transition duration-200">
          View All Database Tables
       </a>
     </div>
 
-    <a href="/index.html"
+    <a href="index.html"
        class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800 mt-6">
        Logout
     </a>
+
+    <p id="syscheck" class="text-xs text-gray-500 mt-6"></p>
   </div>
 
   <script>
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const syscheck = document.getElementById("syscheck");
+
+    // --- Quick connection test ---
+    async function checkConnections() {
+      try {
+        const { error } = await supabase.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       console.log("🟢 admin.html: init start");
       const iterationDisplay = document.getElementById("iteration-display");
+
+      checkConnections();
 
       try {
         console.log("→ querying Supabase for active iteration...");
@@ -63,8 +82,7 @@
       } catch (err) {
         console.error("❌ Failed to load iteration:", err.message);
         iterationDisplay.textContent = "Error loading active iteration.";
-        iterationDisplay.classList.remove("text-blue-600");
-        iterationDisplay.classList.add("text-red-600");
+        iterationDisplay.classList.replace("text-blue-600", "text-red-600");
       }
 
       console.log("🟢 admin.html: init complete");

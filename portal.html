@@ -8,7 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
-<body class="bg-gray-100 flex items-center justify-center h-screen">
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
   <div class="text-center bg-white p-12 rounded-lg shadow-lg">
     <h1 id="welcome-message" class="text-4xl font-bold mb-2">Welcome!</h1>
     <p id="iteration-display" class="text-blue-600 font-semibold mb-8">
@@ -18,13 +18,13 @@
 
     <div class="space-y-4">
       <a
-        href="/login.html"
+        href="login.html"
         class="block w-full bg-blue-500 text-white font-bold py-4 px-8 rounded-lg hover:bg-blue-600 transition-colors duration-200"
       >
         Login to Cognitive Visualizer
       </a>
       <a
-        href="/analysis.html"
+        href="analysis.html"
         class="block w-full bg-purple-500 text-white font-bold py-4 px-8 rounded-lg hover:bg-purple-600 transition-colors duration-200 mt-4"
       >
         Analyze Descriptions
@@ -32,22 +32,41 @@
     </div>
 
     <a
-      href="/index.html"
+      href="index.html"
       class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800 mt-6"
     >
       Logout
     </a>
   </div>
 
+  <p id="syscheck" class="text-xs text-gray-500 mt-4 text-center"></p>
+
   <script>
     console.log("🟢 portal.html: script start");
 
+    // --- Supabase + Gemini setup ---
     const SUPABASE_URL = "https://dtfecbqteajwtcmqudpd.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY";
+    const GEMINI_PROXY_URL = "https://dtfecbqteajwtcmqudpd.functions.supabase.co/gemini-proxy";
 
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     console.log("✅ Supabase client initialized:", sb ? "ok" : "failed");
+
+    // --- Connection check ---
+    const syscheck = document.getElementById("syscheck");
+    async function checkConnections() {
+      try {
+        const { error } = await sb.from("iterations").select("id").limit(1);
+        if (error) throw error;
+        const geminiResp = await fetch(GEMINI_PROXY_URL, { method: "OPTIONS" });
+        if (!geminiResp.ok) throw new Error("Gemini not reachable");
+        syscheck.textContent = "✅ Supabase & Gemini proxy online";
+      } catch (e) {
+        syscheck.textContent = "⚠️ Connection check failed: " + e.message;
+      }
+    }
+    checkConnections();
 
     document.addEventListener("DOMContentLoaded", async () => {
       console.log("→ DOMContentLoaded fired");
@@ -55,7 +74,6 @@
       const welcomeEl = document.getElementById("welcome-message");
       const iterationEl = document.getElementById("iteration-display");
 
-      // --- USER SESSION ---
       const userName = sessionStorage.getItem("loggedInUser");
       console.log("→ sessionStorage.loggedInUser =", userName);
 
@@ -63,23 +81,19 @@
         welcomeEl.textContent = `Welcome, ${userName}!`;
       } else {
         console.warn("⚠️ No loggedInUser found in sessionStorage → redirecting...");
-        window.location.href = "/index.html";
+        window.location.href = "index.html";
         return;
       }
 
-      // --- LOAD ACTIVE ITERATION ---
+      // --- Load Active Iteration ---
       iterationEl.textContent = "Connecting to Supabase...";
       try {
-        console.log("→ querying Supabase for active iteration...");
-
         const { data, error } = await sb
           .from("iterations")
           .select("id, name, start_date, end_date")
           .is("end_date", null)
           .limit(1)
           .single();
-
-        console.log("🔍 Supabase raw response:", { data, error });
 
         if (error) {
           iterationEl.textContent = "Error: " + error.message;
@@ -90,17 +104,15 @@
 
         if (!data) {
           iterationEl.textContent = "No active iteration found.";
-          console.warn("⚠️ Query returned no data.");
           return;
         }
 
         const formattedDate = new Date(data.start_date).toLocaleDateString("en-GB");
         iterationEl.textContent = `Active Iteration: ${data.name} (since ${formattedDate})`;
-        console.log("✅ Active iteration loaded:", data);
       } catch (err) {
         iterationEl.textContent = "Error loading iteration: " + err.message;
         iterationEl.classList.add("text-red-600");
-        console.error("💥 Caught JS exception:", err);
+        console.error("💥 Exception:", err);
       }
 
       console.log("🟢 portal.html: init complete");
