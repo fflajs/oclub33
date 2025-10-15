@@ -170,3 +170,66 @@ GitHub Pages: All HTML/JS + data/ + docs → https://fflajs.github.io/oclub33/
 Apache (your server): /cgi-bin/gemini-proxy.sh (Gemini only)
 
 Supabase: database + REST/JS client
+
+
+6 — GitHub Pages Auto-Deploy Script
+
+To simplify static deployment of the Club33 Cognitive Web App, a shell script named deploy_pages.sh automates the process of publishing the site to GitHub Pages.
+
+🧩 Purpose
+
+This script ensures that only the web-visible files (HTML, data/, and docs) are pushed to the gh-pages branch while the full development repository stays intact on main.
+
+⚙️ Configuration
+
+Repository: ~/REP/oclub33
+
+Remote: fflajs
+
+Main branch: main
+
+Deployment branch: gh-pages
+
+Included files: *.html data README.md DEPLOY.md DEPLOY_GITHUB.md SUMMARY.md BACKUP.md VERSION.txt
+
+▶️ Usage
+cd ~/REP/oclub33
+chmod +x deploy_pages.sh      # once
+./deploy_pages.sh
+
+
+The script performs:
+
+Branch check → must be on main
+
+Pulls latest remote changes
+
+Verifies that the working tree is clean
+
+Creates or refreshes gh-pages
+
+Copies only deployable files
+
+Commits and pushes to fflajs/oclub33:gh-pages
+
+Returns to main
+
+🔒 Safety
+
+Never deletes or modifies anything on main
+
+Aborts if there are uncommitted local changes
+
+Uses --force only when pushing the deployment branch
+
+🌐 Activation
+
+After the first run:
+
+Go to GitHub → Settings → Pages
+
+Under Source, choose gh-pages
+
+Save → Your site will be served at
+https://fflajs.github.io/oclub33/
+
