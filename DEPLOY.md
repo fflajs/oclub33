@@ -59,7 +59,7 @@ Contents:
 ini
 Copy code
 SUPABASE_URL=https://dtfecbqteajwtcmqudpd.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0ZmVjYnF0ZWFqd3RjbXF1ZHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mjc0MzksImV4cCI6MjA3NDMwMzQzOX0.tY8R92LdJuGMDI3kVA2nN3ALugSRP3LJKCMBuVm7vRY
+SUPABASE_ANON_KEY=your-supabase-anon-key-here
 GEMINI_API_KEY=your-google-api-key-here
 Set permissions:
 
