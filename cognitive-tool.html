@@ -490,7 +490,7 @@ checkConnections();
   async function loadCoreFiles(){
     dbg('→ loadCoreFiles');
     const qfile = activeIteration?.question_set || 'Normal_Analysis_60.json';
-    const [vox, qs] = await Promise.all([ fetch('/data/voxel_data.csv'), fetch(`/data/${qfile}`) ]);
+    const [vox, qs] = await Promise.all([ fetch('./data/voxel_data.csv'), fetch(`./data/${qfile}`) ]);
     if(!vox.ok) throw new Error('voxel_data.csv not found'); if(!qs.ok) throw new Error(`${qfile} not found`);
     const voxelCsvData = await vox.text();
     const loadedQuestions = await qs.json();
