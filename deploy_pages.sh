@@ -36,7 +36,7 @@ msg=${msg:-"Deploy static site to GitHub Pages"}
 git commit -m "$msg" || echo "ℹ️  No changes to commit"
 
 echo "⬆️  Pushing to GitHub..."
-git push origin "$BRANCH"
+git push fflajs "$BRANCH"
 
 # --- CONFIRM DEPLOYMENT ---
 echo ""
